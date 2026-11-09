@@ -4,6 +4,10 @@ MapleTracker is a Windows companion for MapleStory. It reads visible game text a
 
 MapleTracker works best while farming in quieter maps. Crowded maps with lots of people and rapid chat spam can make recognition less reliable, causing missed or misread messages and alerts.
 
+## Support
+
+If you'd like to support my projects, you can [leave a tip on Ko-fi](https://ko-fi.com/juanelon). Tips are optional and appreciated.
+
 ## Start here
 
 1. Run MapleTracker.exe. The Windows x64 release includes its runtime, OCR engine, English recognition model, and EXP table. You do not need to install .NET or keep library/model files beside the EXE.
