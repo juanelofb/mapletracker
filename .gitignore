@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+*.user
+artifacts/
+data/settings.json
+data/sessions/
+*.log

@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MapleTracker.Core\MapleTracker.Core.csproj" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+    <Content Include="..\..\data\exp-table.json" Link="data\exp-table.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\data\tessdata\eng.traineddata" Link="tessdata\eng.traineddata" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\data\tessdata\eng.traineddata')" />
+    <Content Include="..\..\data\tessdata\LICENSE" Link="tessdata\LICENSE" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\data\tessdata\LICENSE')" />
+  </ItemGroup>
+</Project>
