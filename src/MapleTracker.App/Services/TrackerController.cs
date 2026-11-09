@@ -23,7 +23,7 @@ public sealed class TrackerController
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly Stopwatch active = new();
     private readonly Stopwatch notificationClock = Stopwatch.StartNew();
-    private readonly LineTracker chatLines = new();
+    private readonly ChatFeedTracker chatLines = new();
     private readonly LootFeedTracker lootLines = new();
     private readonly SessionTracker session;
     private readonly TradeAlertMatcher alertMatcher;
@@ -134,7 +134,7 @@ public sealed class TrackerController
             foreach (var line in chatLines.Update(frame.Chat)) AddChat(line);
             foreach (var line in lootLines.Update(frame.LootLines, notificationClock.Elapsed)) AddLoot(line, statsVersion == statisticsGeneration);
             if (statsVersion == statisticsGeneration) AcceptHud(frame.Hud);
-            DiagnosticsText = $"{HudStatus}\nLEVEL  {frame.LevelText}\nEXP attempts\n{string.Join('\n', frame.HudCandidates.Select(c => c.Text))}\n\nLOOT\n{string.Join('\n', frame.Loot)}\n\nCHAT\n{string.Join('\n', frame.Chat)}";
+            DiagnosticsText = $"{HudStatus}\nLEVEL  {frame.LevelText}\nEXP attempts\n{string.Join('\n', frame.HudCandidates.Select(c => c.Text))}\n\nLOOT\n{string.Join('\n', frame.Loot)}\n\nCHAT · {chatLines.IgnoredLines} draft/unverified lines ignored\n{string.Join('\n', frame.Chat)}";
             WriteRecognitionDiagnostics(frame);
             Status = (frame.Hud == null ? "Reading · EXP unreadable; check regions in Setup" : "Live · " + target.Title) + (journalWarning == null ? "" : " · " + journalWarning);
         }
