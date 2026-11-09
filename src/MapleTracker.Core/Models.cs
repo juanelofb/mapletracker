@@ -38,7 +38,7 @@ public sealed class TrackerSettings
     public double StatsLeft { get; set; } = 790;
     public double StatsTop { get; set; } = 80;
     public double StatsWidth { get; set; } = 390;
-    public double StatsHeight { get; set; } = 650;
+    public double StatsHeight { get; set; } = 560;
 }
 
 public sealed class TradeClassifier(TrackerSettings settings)
