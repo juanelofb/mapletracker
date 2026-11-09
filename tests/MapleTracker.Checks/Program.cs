@@ -98,4 +98,50 @@ Check(alerts.Match("NewPlayer: S> Steel Ore", now).Count == 0, "global alert dis
 watchSettings.AlertsEnabled = true;
 watchSettings.BuyingItems = ["[buy]", ".*", ""];
 Check(alerts.Match("Player: S> everything", now).Count == 0, "watch items cannot inject regex wildcards");
+Check(HudConsensus.Read("27", [new("EXP 55.187 36.69%", 76), new("EXP S5.187 86.69%", 17)], table) == new HudReading(27, 55187),
+    "good number and percent can validate across different OCR passes");
+Check(HudConsensus.Read("27", [new("EXP ss.187 36.69%", 76), new("EXP S5.187 86.69%", 17)], table) == null,
+    "consensus does not invent missing EXP digits");
+Check(HudConsensus.Read("27", [new("XR s4.7s¢ 96.00%", 90)], table) == null, "consensus does not revive partial digit bug");
+Check(HudConsensus.Read("27", [new("EXP 55.187 36.69%", 76)], table) == null, "consensus still requires consistent percentage");
+
+var feed = new LootFeedTracker();
+static NotificationLine Notification(string text, double top = .7, float confidence = 85, double brightness = 160)
+    => new(text, top, .15, confidence, brightness);
+IReadOnlyList<string> Observe(double seconds, params NotificationLine[] observed) => feed.Update(observed, TimeSpan.FromSeconds(seconds));
+Check(Observe(0, Notification("Leafx1 earned.")).Count == 0, "loot waits for two readable sightings");
+Check(Observe(.5, Notification("Leafx1 earned.")).Count == 1, "stable pickup counted once");
+Check(Observe(1, Notification("” Leatx1 earned", brightness: 130)).Count == 0, "fading Leaf to Leat is not a new pickup");
+Check(Observe(1.5, Notification("Leafx1 earned", brightness: 100)).Count == 0, "returning OCR spelling is not a new pickup");
+Check(Observe(2).Count == 0 && Observe(2.5).Count == 0, "empty OCR frames do not immediately forget loot");
+Check(Observe(3, Notification("Leatx1 earned", brightness: 70)).Count == 0, "faded item returning after OCR gap stays counted");
+Check(Observe(3.5, Notification("Leafx1 earned", brightness: 170)).Count == 0, "fresh repeat begins a separate notification");
+Check(Observe(4, Notification("Leafx1 earned", brightness: 170)).Count == 1, "fresh repeat counts after confirmation");
+feed.Reset();
+Observe(0, Notification("Orange Potion x1 earned.", .7));
+Observe(.5, Notification("Orange Potion x1 earned.", .7));
+Observe(1, Notification("Orange Potion x1 earned.", .4), Notification("Orange Potion x1 earned.", .7));
+Check(Observe(1.5, Notification("Orange Potion x1 earned.", .4), Notification("Orange Potion x1 earned.", .7)).Count == 1,
+    "two simultaneous identical pickups count as two events");
+feed.Reset();
+Observe(0, Notification("Horny Mushroo... x1 earned.", .4), Notification("You received EXP (+41)", .7));
+Observe(.5, Notification("Horny Mushroo... x1 earned.", .4), Notification("You received EXP (+41)", .7));
+Check(Observe(1, Notification("dorny Mushrog... x1 earned.", .4), Notification("You received EXP (+41)", .7)).Count == 0,
+    "multiple fading OCR character errors do not duplicate pickup");
+Check(Observe(1.5, Notification("You received EXP (+41)", .4), Notification("Leaf x1 earned.", .7)).Count == 0,
+    "scrolled new pickup waits for confirmation");
+Check(Observe(2, Notification("You received EXP (+41)", .4), Notification("Leaf x1 earned.", .7)).Count == 1,
+    "scrolled new pickup counts without replaying old rows");
+feed.Reset();
+Observe(0, Notification("You have gained mesos (+47)"));
+Check(Observe(.5, Notification("You have gained mesos (+47)")).Count == 1, "meso notification confirmed once");
+Check(Observe(1, Notification("You have gained mesos (+47)", brightness: 110)).Count == 0, "fading meso message not re-added");
+Check(Observe(1.5, Notification("You have gained mesos (+41)", brightness: 80)).Count == 0, "a fading misread meso digit does not create another event");
+feed.Reset();
+Observe(0, Notification("Leaf x1 earned.")); Observe(.5, Notification("Leaf x1 earned."));
+Observe(1, Notification("Leaf x7 earned.", brightness: 110));
+Check(Observe(1.5, Notification("Leaf x7 earned.", brightness: 80)).Count == 0, "a fading quantity misread does not multiply item totals");
+feed.Reset();
+Observe(0, Notification("Leaf x1 earned.", confidence: 40));
+Check(Observe(.5, Notification("Leat x1 earned.", confidence: 45)).Count == 0, "low confidence noise cannot create a pickup");
 Console.WriteLine($"\n{passed} checks passed.");

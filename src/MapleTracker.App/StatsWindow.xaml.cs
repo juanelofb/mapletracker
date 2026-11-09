@@ -20,7 +20,7 @@ public partial class StatsWindow : Window
             LevelText.Text = s.Level == 100 ? "Level 100 · table complete" : $"Level {s.Level} → {s.Level + 1}";
             ExperienceText.Text = s.Required != null ? $"{s.Experience:N0} / {s.Required:N0} EXP" : $"{s.Experience:N0} EXP";
             ExperienceProgress.Value = s.Required is > 0 ? 100.0 * s.Experience!.Value / s.Required.Value : 100;
-            RemainingText.Text = s.Required != null ? $"{s.Required - s.Experience:N0} EXP remaining · {ExperienceProgress.Value:F2}%" : "No next-level requirement in the supplied table";
+            RemainingText.Text = s.Required != null ? $"{s.Required - s.Experience:N0} EXP remaining · {ExperienceProgress.Value:F2}%\n{controller.HudStatus}" : "No next-level requirement in the supplied table";
         }
         else { LevelText.Text = "Waiting for EXP"; ExperienceText.Text = "Mark the level and EXP text in Setup."; ExperienceProgress.Value = 0; RemainingText.Text = ""; }
         EtaText.Text = s.Eta == null ? "Gathering pace…" : FormatDuration(s.Eta.Value); if (s.Level == 100) EtaText.Text = "Table complete";

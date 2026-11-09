@@ -8,7 +8,11 @@ using PixelFormat = System.Drawing.Imaging.PixelFormat;
 
 namespace MapleTracker.App.Services;
 
-public sealed record RecognitionFrame(string[] Chat, string[] Loot, string LevelText, string ExpText, HudReading? Hud);
+public sealed record RecognitionFrame(string[] Chat, string[] Loot, string LevelText, string ExpText, HudReading? Hud)
+{
+    public NotificationLine[] LootLines { get; init; } = [];
+    public HudCandidate[] HudCandidates { get; init; } = [];
+}
 
 public sealed class OcrReader : IDisposable
 {
@@ -27,25 +31,31 @@ public sealed class OcrReader : IDisposable
     public RecognitionFrame Read(Bitmap frame, TrackerSettings settings, string? diagnostics = null)
     {
         var chat = Region(frame, settings.Chat, "chat", false, diagnostics);
-        var loot = Region(frame, settings.Loot, "loot", true, diagnostics);
+        var lootLines = ReadRegion(frame, settings.Loot, "loot", true, diagnostics);
+        var loot = lootLines.Select(line => line.Text).ToArray();
         var level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true));
         if (!int.TryParse(level, out var numericLevel) || numericLevel is < 1 or > 100)
             level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true, 100, PageSegMode.SingleLine));
         var exp = "";
         HudReading? hud = null;
         var attempts = new List<object>();
+        var candidates = new List<HudCandidate>();
         foreach (var (threshold, mode) in new[]
         {
             (100, PageSegMode.SingleLine), (0, PageSegMode.SingleLine),
-            (150, PageSegMode.SingleWord), (150, PageSegMode.SingleLine)
+            (150, PageSegMode.SingleWord), (150, PageSegMode.SingleLine),
+            (175, PageSegMode.SingleWord), (75, PageSegMode.SingleLine)
         })
         {
-            exp = string.Join(" ", Region(frame, settings.Experience, "exp", false, diagnostics, true, threshold, mode));
+            var lines = ReadRegion(frame, settings.Experience, "exp", false, diagnostics, true, threshold, mode);
+            exp = string.Join(" ", lines.Select(line => line.Text));
+            candidates.Add(new(exp, lines.Length > 0 ? lines.Average(line => line.Confidence) : 0));
             hud = TextParsing.Hud(level, exp, table);
             attempts.Add(new { threshold, Mode = mode.ToString(), Text = exp, Validated = hud != null });
             if (hud != null) break;
         }
-        var result = new RecognitionFrame(chat, loot, level, exp, hud);
+        hud ??= HudConsensus.Read(level, candidates, table);
+        var result = new RecognitionFrame(chat, loot, level, exp, hud) { LootLines = lootLines, HudCandidates = candidates.ToArray() };
         if (diagnostics != null)
         {
             File.WriteAllText(Path.Combine(diagnostics, "recognition.json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
@@ -55,6 +65,10 @@ public sealed class OcrReader : IDisposable
     }
 
     private string[] Region(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics,
+        bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null)
+        => ReadRegion(frame, region, name, whiteText, diagnostics, singleLine, thresholdOverride, segmentation).Select(line => line.Text).ToArray();
+
+    private NotificationLine[] ReadRegion(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics,
         bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null)
     {
         using var crop = WindowCapture.Crop(frame, region);
@@ -71,7 +85,7 @@ public sealed class OcrReader : IDisposable
         using var pix = Pix.LoadFromMemory(memory.ToArray());
         engine.SetVariable("tessedit_char_whitelist", name == "level" ? "0123456789" : "");
         using var page = engine.Process(pix, segmentation ?? (singleLine ? PageSegMode.SingleWord : name == "loot" ? PageSegMode.SparseText : PageSegMode.Auto));
-        var lines = new List<(int Y, int X, string Text)>();
+        var lines = new List<NotificationLine>();
         using var iter = page.GetIterator();
         iter.Begin();
         do
@@ -80,10 +94,32 @@ public sealed class OcrReader : IDisposable
             if (!string.IsNullOrWhiteSpace(text) && (singleLine || text.Length >= 4 && iter.GetConfidence(PageIteratorLevel.TextLine) >= 35))
             {
                 iter.TryGetBoundingBox(PageIteratorLevel.TextLine, out var bounds);
-                lines.Add((bounds.Y1, bounds.X1, text));
+                var top = Math.Clamp((bounds.Y1 - 12) / 3.0 / crop.Height, 0, 1);
+                var height = (bounds.Y2 - bounds.Y1) / 3.0 / crop.Height;
+                var brightness = name == "loot" ? TextBrightness(crop, bounds) : 160;
+                lines.Add(new(text, top, height, iter.GetConfidence(PageIteratorLevel.TextLine), brightness));
             }
         } while (iter.Next(PageIteratorLevel.TextLine));
-        return lines.OrderBy(x => x.Y).ThenBy(x => x.X).Select(x => x.Text).ToArray();
+        return lines.OrderBy(line => line.Top).ToArray();
+    }
+
+    private static double TextBrightness(Bitmap crop, Tesseract.Rect bounds)
+    {
+        var values = new List<int>();
+        int left = Math.Clamp((bounds.X1 - 12) / 3, 0, crop.Width - 1);
+        int top = Math.Clamp((bounds.Y1 - 12) / 3, 0, crop.Height - 1);
+        int right = Math.Clamp((bounds.X2 - 12) / 3, left, crop.Width - 1);
+        int bottom = Math.Clamp((bounds.Y2 - 12) / 3, top, crop.Height - 1);
+        for (int y = top; y <= bottom; y++)
+        for (int x = left; x <= right; x++)
+        {
+            var p = crop.GetPixel(x, y);
+            int min = Math.Min(p.R, Math.Min(p.G, p.B));
+            int max = Math.Max(p.R, Math.Max(p.G, p.B));
+            if (min > 35 && max - min < 65) values.Add((p.R + p.G + p.B) / 3);
+        }
+        values.Sort();
+        return values.Count == 0 ? 0 : values[(int)((values.Count - 1) * .8)];
     }
 
     public void Probe(Bitmap frame, TrackerSettings settings, string directory)

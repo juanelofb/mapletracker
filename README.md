@@ -49,9 +49,15 @@ Open **Item alerts** in the chat window. Put one item per line in **I want to bu
 
 The capture interval defaults to 500 ms. OCR runs on one background worker; frames never queue up. Small fonts, colored text, faded text, noisy backgrounds, wrapped chat and fast chat can reduce accuracy. A notification must be visible when a frame is captured. Text that the game hides or truncates cannot be recovered.
 
-Ordered overlap across frames prevents unchanged lines from being added repeatedly and retains identical new lines when the feed visibly scrolls. An identical single-line message replaced by another identical message without a visible change is inherently ambiguous. Two consecutive empty observations clear the overlap history. Low-confidence chat lines are omitted. HUD recognition tries several contrast/segmentation settings and requires a complete numeric EXP value plus its displayed percentage, consistent with the level table to within 0.03 percentage points. Include both in your EXP selection. Garbled or partial text cannot establish an EXP baseline. Baselines, large jumps, losses and level changes require successive plausible observations. Verify OCR against your gameplay before relying on totals or alerts.
+Chat uses ordered overlap across frames. Loot uses separate notification lifetimes, row positions, upward movement, and brightness changes, with two readable sightings required before counting a pickup or meso message. Missing OCR rows are retained briefly, so fading `Leaf` / `Leat` variants do not repeatedly add the same pickup. A fresh notification, or another identical row entering the feed, can still count separately. Low-confidence or very short-lived notifications may be missed. If a notification is replaced by an identical one without a visible change, the distinction is inherently ambiguous; this version favors avoiding inflated totals.
 
-Recognition details are available in the statistics window. Setup's recognition test shows the raw OCR and validated HUD. For repeatable offline troubleshooting:
+HUD recognition tries several contrast/segmentation settings and validates the numeric EXP value against its displayed percentage to within 0.03 percentage points. When one OCR pass reads the number well and another reads the percentage well, consistent evidence can be combined. Contradictory or partial evidence is rejected. Include both the number and percentage in your EXP selection. Baselines, large jumps, losses and level changes require successive plausible observations. The statistics window shows how long ago EXP was last confirmed; an old value is not proof that OCR is still succeeding. Verify OCR against gameplay before relying on totals or alerts.
+
+Recognition details are available in the statistics window. Setup's recognition test shows the raw OCR and validated HUD.
+
+During capture, `data/recognition-last.json` is refreshed every two seconds with the latest OCR candidates, loot row observations, and last confirmed EXP time. It stays local and contains no screen images.
+
+For repeatable offline troubleshooting:
 
 ```powershell
 ./src/MapleTracker.App/bin/Release/net9.0-windows/MapleTracker.App.exe --verify-screenshot C:/path/to/screenshot.png C:/path/to/diagnostics
@@ -66,7 +72,7 @@ Settings and session data live beside the executable in `data/`. Use a writable 
 - `src/MapleTracker.Core` — trade matching, OCR text parsers, ordered line tracking, EXP table and session math.
 - `src/MapleTracker.App` — WPF UI, Win32 screen capture, local Tesseract OCR, settings and logs.
 - `tests/MapleTracker.Checks` — deterministic checks of rollover, losses, ETA, duplicate handling, parsers, categories and table totals.
-- `tests/MapleTracker.AppChecks` — WPF regression checks of snapshot → Save, repeated snapshots, cancellation, capture failure, persisted setup and watchlists, notification delivery, and popup focus. These use a synthetic capture source and briefly open test windows. Optional `MAPLETRACKER_ORIGINAL_SCREENSHOT` / `MAPLETRACKER_LATEST_SCREENSHOT` environment variables run OCR checks against local game-client image fixtures; user screenshots are never committed.
+- `tests/MapleTracker.AppChecks` — WPF regression checks of snapshot → Save, repeated snapshots, cancellation, capture failure, persisted setup and watchlists, notification delivery, and popup focus. These use a synthetic capture source and briefly open test windows. Optional `MAPLETRACKER_ORIGINAL_SCREENSHOT`, `MAPLETRACKER_LATEST_SCREENSHOT`, and `MAPLETRACKER_FADING_SCREENSHOT` environment variables run OCR checks against local game-client image fixtures; user screenshots are never committed.
 
 ```powershell
 dotnet run --project tests/MapleTracker.Checks

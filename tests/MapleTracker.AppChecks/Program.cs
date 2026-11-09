@@ -191,7 +191,8 @@ internal static class Program
         var cases = new[]
         {
             (Environment.GetEnvironmentVariable("MAPLETRACKER_ORIGINAL_SCREENSHOT"), 50548L),
-            (Environment.GetEnvironmentVariable("MAPLETRACKER_LATEST_SCREENSHOT"), 54754L)
+            (Environment.GetEnvironmentVariable("MAPLETRACKER_LATEST_SCREENSHOT"), 54754L),
+            (Environment.GetEnvironmentVariable("MAPLETRACKER_FADING_SCREENSHOT"), 55187L)
         };
         var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
         using var reader = new OcrReader(table);

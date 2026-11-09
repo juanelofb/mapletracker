@@ -27,7 +27,7 @@ public static class TextParsing
         var m = Match(text, @"^(?<name>.+?)\s*[x×]\s*(?<qty>\d[\d,]*)\s+(?:earned|obtained|received)\b");
         if (!m.Success) m = Match(text, @"(?:obtained|received|picked up)(?:\s+an?\s+item)?\s*[:(]\s*(?<name>[^)]+?)\s*[x×]\s*(?<qty>\d[\d,]*)\s*\)?\s*$");
         if (!m.Success) return null;
-        var name = m.Groups["name"].Value.Trim();
+        var name = Regex.Replace(m.Groups["name"].Value.Trim(), @"^[^\p{L}\p{N}]+", "");
         var qty = Number(m.Groups["qty"].Value);
         return qty is > 0 and <= 999999 && name.Length > 0 && !Regex.IsMatch(name, @"\b(?:EXP|mesos?)\b", RegexOptions.IgnoreCase, Timeout) ? new(name, qty.Value) : null;
     }

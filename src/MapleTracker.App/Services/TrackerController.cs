@@ -21,8 +21,9 @@ public sealed class TrackerController
     public event Action? Changed;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly Stopwatch active = new();
+    private readonly Stopwatch notificationClock = Stopwatch.StartNew();
     private readonly LineTracker chatLines = new();
-    private readonly LineTracker lootLines = new();
+    private readonly LootFeedTracker lootLines = new();
     private readonly SessionTracker session;
     private readonly TradeAlertMatcher alertMatcher;
     private OcrReader? ocr;
@@ -34,6 +35,9 @@ public sealed class TrackerController
     private int demoStep;
     private StreamWriter? journal;
     private string? journalWarning;
+    private DateTimeOffset? lastHudAt;
+    public string HudStatus => Demo ? "Demo · simulated EXP" : lastHudAt == null ? "Waiting for a confirmed EXP reading" :
+        $"EXP confirmed {Math.Max(0, (int)(DateTimeOffset.UtcNow - lastHudAt.Value).TotalSeconds)}s ago";
     public SessionSnapshot Snapshot => session.Snapshot(active.Elapsed);
 
     public TrackerController(TrackerSettings settings)
@@ -63,6 +67,7 @@ public sealed class TrackerController
         generation++; Running = false; Demo = false; active.Reset(); session.Reset();
         chatLines.Reset(); lootLines.Reset(); pendingHud = null; hasHud = false;
         Entries.Clear(); Items.Clear(); Alerts.Clear(); alertMatcher.Reset(); journal?.Dispose(); journal = null; journalWarning = null;
+        lastHudAt = null;
         Status = "New session · ready"; DiagnosticsText = "No frames read yet."; Changed?.Invoke();
     }
     public void StartDemo()
@@ -75,7 +80,7 @@ public sealed class TrackerController
 
     private async Task Tick()
     {
-        if (busy) return;
+        if (busy) { Changed?.Invoke(); return; }
         if (!Running) { Changed?.Invoke(); return; }
         if (Demo)
         {
@@ -115,9 +120,10 @@ public sealed class TrackerController
             if (version != generation || !Running) return;
             if (WindowCapture.GetForegroundWindow() != target.Handle || WindowCapture.RegionsCovered(target.Handle, Settings)) { active.Stop(); return; }
             foreach (var line in chatLines.Update(frame.Chat)) AddChat(line);
-            foreach (var line in lootLines.Update(frame.Loot)) AddLoot(line);
+            foreach (var line in lootLines.Update(frame.LootLines, notificationClock.Elapsed)) AddLoot(line);
             AcceptHud(frame.Hud);
-            DiagnosticsText = $"LEVEL  {frame.LevelText}\nEXP  {frame.ExpText}\n\nLOOT\n{string.Join('\n', frame.Loot)}\n\nCHAT\n{string.Join('\n', frame.Chat)}";
+            DiagnosticsText = $"{HudStatus}\nLEVEL  {frame.LevelText}\nEXP attempts\n{string.Join('\n', frame.HudCandidates.Select(c => c.Text))}\n\nLOOT\n{string.Join('\n', frame.Loot)}\n\nCHAT\n{string.Join('\n', frame.Chat)}";
+            WriteRecognitionDiagnostics(frame);
             Status = (frame.Hud == null ? "Reading · EXP unreadable; check regions in Setup" : "Live · " + target.Title) + (journalWarning == null ? "" : " · " + journalWarning);
         }
         catch (Exception ex)
@@ -139,7 +145,23 @@ public sealed class TrackerController
             Math.Abs(absolute - Table.Absolute(pendingHud.Level, pendingHud.Experience)) > (Table.Required(reading.Level) ?? long.MaxValue) / 20))
         { pendingHud = reading; return; }
         pendingHud = null;
-        if (session.Observe(reading, active.Elapsed)) { lastConfirmedAbsolute = absolute; hasHud = true; }
+        if (session.Observe(reading, active.Elapsed)) { lastConfirmedAbsolute = absolute; hasHud = true; lastHudAt = DateTimeOffset.UtcNow; }
+    }
+
+    private DateTimeOffset nextDiagnosticsWrite;
+    private void WriteRecognitionDiagnostics(RecognitionFrame frame)
+    {
+        if (DateTimeOffset.UtcNow < nextDiagnosticsWrite) return;
+        nextDiagnosticsWrite = DateTimeOffset.UtcNow.AddSeconds(2);
+        try
+        {
+            Directory.CreateDirectory(SettingsStore.DataDirectory);
+            File.WriteAllText(Path.Combine(SettingsStore.DataDirectory, "recognition-last.json"), JsonSerializer.Serialize(new
+            {
+                Time = DateTimeOffset.Now, LastConfirmedHud = lastHudAt, Frame = frame, Snapshot
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     internal void AddChat(string text)
