@@ -21,10 +21,9 @@
         <Canvas x:Name="SelectionCanvas" Background="Transparent" MouseLeftButtonDown="SelectionStart" MouseMove="SelectionMove" MouseLeftButtonUp="SelectionEnd"/>
       </Grid>
     </Grid>
-    <Grid Grid.Row="3" Margin="0,18,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions>
+    <Grid Grid.Row="3" Margin="0,18,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
       <StackPanel Margin="0,0,14,0"><TextBlock Text="BUYING TERMS · comma separated" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,0,0,7"/><TextBox x:Name="BuyingTerms"/></StackPanel>
       <StackPanel Grid.Column="1" Margin="0,0,14,0"><TextBlock Text="SELLING TERMS · comma separated" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,0,0,7"/><TextBox x:Name="SellingTerms"/></StackPanel>
-      <StackPanel Grid.Column="2"><TextBlock Text="WINDOW OPACITY" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,0,0,8"/><Slider x:Name="OpacitySlider" Minimum=".4" Maximum="1" Value="1" TickFrequency=".1"/></StackPanel>
     </Grid>
     <Grid Grid.Row="4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <TextBlock x:Name="SetupStatus" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" Text="Default regions match your original screenshot; recalibrate for another layout."/>

@@ -11,13 +11,13 @@ public partial class StatsWindow : Window
         this.controller = controller; this.requestSetup = requestSetup; InitializeComponent(); var s = controller.Settings;
         WindowAppearance.Restore(this, s.StatsLeft, s.StatsTop, s.StatsWidth, s.StatsHeight);
         Topmost = s.AlwaysOnTop; ApplyAppearance();
-        Transparency.Initialize(controller, Save);
+        Transparency.Initialize(controller, Save, statistics: true);
         controller.AppearanceChanged += ApplyAppearance;
         Closing += (_, _) => { RememberBounds(); Save(); };
         Closed += (_, _) => controller.AppearanceChanged -= ApplyAppearance;
         Refresh();
     }
-    private void ApplyAppearance() => WindowAppearance.SetSurfaceOpacity(this, controller.Settings.Opacity);
+    private void ApplyAppearance() => WindowAppearance.SetSurfaceOpacity(this, controller.Settings.StatisticsOpacity);
     private void Save()
     {
         try { new SettingsStore().Save(controller.Settings); }

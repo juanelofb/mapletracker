@@ -93,9 +93,10 @@ public sealed class TrackerController
     {
         if (active.IsRunning) { active.Stop(); rebaseStatistics = hasHud; pendingHud = null; }
     }
-    public void SetOpacity(double opacity)
+    public void SetOpacity(double opacity, bool statistics = false)
     {
-        Settings.Opacity = Math.Clamp(opacity, .4, 1);
+        if (statistics) Settings.StatisticsOpacity = Math.Clamp(opacity, .4, 1);
+        else Settings.ChatOpacity = Math.Clamp(opacity, .4, 1);
         AppearanceChanged?.Invoke();
     }
     public void SetPopupsEnabled(bool enabled)
@@ -209,11 +210,6 @@ public sealed class TrackerController
             journal.WriteLine(JsonSerializer.Serialize(entry));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { journalWarning = "session log unavailable"; }
-    }
-    public void Export(string file)
-    {
-        var snapshot = Snapshot;
-        File.WriteAllText(file, JsonSerializer.Serialize(new { StatisticsRunning, Snapshot = snapshot, Items, Entries, Alerts }, new JsonSerializerOptions { WriteIndented = true }));
     }
     public async Task WaitForIdle() { while (busy) await Task.Delay(30); }
     public async Task Shutdown()

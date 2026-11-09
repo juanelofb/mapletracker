@@ -12,12 +12,18 @@ public sealed class SettingsStore
         try
         {
             if (!File.Exists(SettingsPath)) return new();
-            var value = JsonSerializer.Deserialize<TrackerSettings>(File.ReadAllText(SettingsPath)) ?? throw new JsonException("Empty settings.");
+            var json = File.ReadAllText(SettingsPath);
+            var value = JsonSerializer.Deserialize<TrackerSettings>(json) ?? throw new JsonException("Empty settings.");
             if (value.Chat == null || value.Loot == null || value.Level == null || value.Experience == null ||
                 !value.Chat.IsValid || !value.Loot.IsValid || !value.Level.IsValid || !value.Experience.IsValid ||
                 value.BuyingTerms == null || value.SellingTerms == null) throw new JsonException("Invalid regions or keywords.");
             value.PollMilliseconds = Math.Clamp(value.PollMilliseconds, 250, 5000);
             value.Opacity = double.IsFinite(value.Opacity) ? Math.Clamp(value.Opacity, .4, 1) : 1;
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty(nameof(TrackerSettings.ChatOpacity), out _)) value.ChatOpacity = value.Opacity;
+            if (!document.RootElement.TryGetProperty(nameof(TrackerSettings.StatisticsOpacity), out _)) value.StatisticsOpacity = value.Opacity;
+            value.ChatOpacity = double.IsFinite(value.ChatOpacity) ? Math.Clamp(value.ChatOpacity, .4, 1) : .9;
+            value.StatisticsOpacity = double.IsFinite(value.StatisticsOpacity) ? Math.Clamp(value.StatisticsOpacity, .4, 1) : .9;
             value.BuyingItems ??= [];
             value.SellingItems ??= [];
             return value;

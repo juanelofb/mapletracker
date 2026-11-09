@@ -292,7 +292,7 @@ internal static class Program
             Check(window.AllowsTransparency && window.WindowStyle == WindowStyle.None, "modern shell supports a translucent custom frame");
             var transparency = (TransparencyControl)window.FindName("Transparency");
             ((Slider)transparency.FindName("TransparencySlider")).Value = 35;
-            Check(Math.Abs(controller.Settings.Opacity - .65) < .001 && window.Opacity == 1,
+            Check(Math.Abs(controller.Settings.ChatOpacity - .65) < .001 && window.Opacity == 1,
                 "bottom slider changes surface transparency without fading text");
             Check(((System.Windows.Media.SolidColorBrush)window.Background).Color.A is >= 164 and <= 166, "surface brush applies the requested alpha");
             var popupSwitch = (CheckBox)window.FindName("PopupToggle");
@@ -301,6 +301,15 @@ internal static class Program
             Check(!controller.Settings.AlertsEnabled, "chat popup switch updates the saved preference");
             var stats = new StatsWindow(controller);
             stats.Show();
+            Check(Math.Abs(controller.Settings.StatisticsOpacity - .9) < .001, "chat transparency does not change statistics transparency");
+            var statsTransparency = (TransparencyControl)stats.FindName("Transparency");
+            ((Slider)statsTransparency.FindName("TransparencySlider")).Value = 20;
+            Check(Math.Abs(controller.Settings.StatisticsOpacity - .8) < .001 && Math.Abs(controller.Settings.ChatOpacity - .65) < .001,
+                "statistics transparency changes independently of chat");
+            var settingsStore = new SettingsStore(); settingsStore.Save(controller.Settings);
+            var restoredSettings = settingsStore.Load();
+            Check(Math.Abs(restoredSettings.ChatOpacity - .65) < .001 && Math.Abs(restoredSettings.StatisticsOpacity - .8) < .001,
+                "independent transparency settings survive restart");
             ((Button)stats.FindName("StatsStopButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Check(!controller.StatisticsRunning, "statistics Stop button is wired");
             ((Button)stats.FindName("StatsStartButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));

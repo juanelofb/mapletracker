@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Windows.Data;
 using MapleTracker.App.Services;
-using Microsoft.Win32;
 
 namespace MapleTracker.App;
 
@@ -61,7 +60,7 @@ public partial class MainWindow : Window
         PopupToggle.IsChecked = controller.Settings.AlertsEnabled;
         if (!controller.Settings.AlertsEnabled) notifications.Clear();
     }
-    private void ApplyAppearance() => WindowAppearance.SetSurfaceOpacity(this, controller.Settings.Opacity);
+    private void ApplyAppearance() => WindowAppearance.SetSurfaceOpacity(this, controller.Settings.ChatOpacity);
     private void PopupChanged(object sender, RoutedEventArgs e)
     {
         controller.SetPopupsEnabled(PopupToggle.IsChecked == true); Save();
@@ -76,7 +75,6 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true)
         {
             Topmost = controller.Settings.AlwaysOnTop; TopCheck.IsChecked = Topmost;
-            controller.SetOpacity(controller.Settings.Opacity);
             if (stats != null) stats.Topmost = Topmost;
             Save();
         }
@@ -110,12 +108,6 @@ public partial class MainWindow : Window
         else { stats.Show(); stats.Activate(); }
     }
     private void TopChanged(object sender, RoutedEventArgs e) { Topmost = TopCheck.IsChecked == true; controller.Settings.AlwaysOnTop = Topmost; if (stats != null) stats.Topmost = Topmost; Save(); }
-    private void ExportClick(object sender, RoutedEventArgs e)
-    {
-        var dialog = new SaveFileDialog { Filter = "JSON session (*.json)|*.json", FileName = $"mapletracker-{DateTime.Now:yyyyMMdd-HHmm}.json" };
-        if (dialog.ShowDialog(this) != true) return;
-        try { controller.Export(dialog.FileName); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { MessageBox.Show(this, ex.Message, "Export failed"); }
-    }
     private void Save()
     {
         try { store.Save(controller.Settings); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { MessageBox.Show(this, e.Message, "Could not save settings"); }

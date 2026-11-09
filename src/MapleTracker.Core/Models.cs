@@ -27,7 +27,10 @@ public sealed class TrackerSettings
     public bool AlertsEnabled { get; set; } = true;
     public int PollMilliseconds { get; set; } = 500;
     public bool AlwaysOnTop { get; set; } = true;
+    // Legacy shared value, used only when migrating older settings files.
     public double Opacity { get; set; } = .9;
+    public double ChatOpacity { get; set; } = .9;
+    public double StatisticsOpacity { get; set; } = .9;
     public double ChatLeft { get; set; } = 60;
     public double ChatTop { get; set; } = 80;
     public double ChatWidth { get; set; } = 700;

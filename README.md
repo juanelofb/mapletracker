@@ -23,7 +23,7 @@ The app uses visible screen capture relative to the game client rectangle. Coord
 
 **Start capture / Pause** control OCR capture. The statistics window has independent **Start / Stop / Reset** controls: Stop freezes EXP, meso and the session clock while chat, loot and market alerts keep running; Start resumes from your current EXP and excludes EXP earned during the stopped interval. Reset clears only statistics and preserves their current running/stopped state. It leaves chat, item totals and alert history intact. Closing chat exits all tracker windows, including popups. Statistics can be closed and reopened.
 
-The dark windows use joined tabs and a custom title bar. Drag the title bar to move them; drag the bottom-right grip to resize. The **Transparency** slider at the bottom of either window changes both window backgrounds while text remains fully opaque. Values run from 0% (opaque) to 60% transparent. Preferences, positions and sizes are saved. Demo has been removed.
+The dark windows use joined tabs and a custom title bar. Drag the title bar to move them; drag the bottom-right grip to resize. Each window has its own **Transparency** slider: chat and statistics are independent, and text remains fully opaque. Values run from 0% (opaque) to 60% transparent. Old shared transparency settings migrate to both windows initially. Preferences, positions and sizes are saved. Search filters the active tab; the empty field shows **Search messages…**. Scrollbars use a slim rounded thumb without arrow buttons. Demo and Export have been removed.
 
 ## Item alerts
 
@@ -70,7 +70,7 @@ This writes original crops, processed crops, `recognition.json`, and `hud-attemp
 
 ## Data and development
 
-Settings and session data live beside the executable in `data/`. Use a writable folder. Chat and item entries append to timestamped `data/sessions/*.jsonl`; the UI retains up to 5,000 entries. **Export** saves current entries, item totals and the statistics snapshot as JSON. Session history is not automatically restored after restart. Nothing is uploaded.
+Settings and session data live beside the executable in `data/`. Use a writable folder. Chat and item entries append to timestamped `data/sessions/*.jsonl`; the UI retains up to 5,000 entries. Session history is not automatically restored after restart. Nothing is uploaded.
 
 - `src/MapleTracker.Core` — trade matching, OCR text parsers, ordered line tracking, EXP table and session math.
 - `src/MapleTracker.App` — WPF UI, Win32 screen capture, local Tesseract OCR, settings and logs.

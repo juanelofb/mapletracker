@@ -28,7 +28,7 @@ public partial class SetupWindow : Window
         this.captureSnapshot = captureSnapshot;
         draft = JsonSerializer.Deserialize<TrackerSettings>(JsonSerializer.Serialize(controller.Settings))!;
         InitializeComponent();
-        BuyingTerms.Text = string.Join(", ", draft.BuyingTerms); SellingTerms.Text = string.Join(", ", draft.SellingTerms); OpacitySlider.Value = draft.Opacity;
+        BuyingTerms.Text = string.Join(", ", draft.BuyingTerms); SellingTerms.Text = string.Join(", ", draft.SellingTerms);
         RefreshWindows(); UpdateRegionInfo(); Loaded += (_, _) => WindowAppearance.DarkTitleBar(this);
         Closed += (_, _) => reference?.Dispose();
         Closing += (_, e) => { if (working) e.Cancel = true; };
@@ -158,7 +158,7 @@ public partial class SetupWindow : Window
         s.Chat = draft.Chat; s.Loot = draft.Loot; s.Level = draft.Level; s.Experience = draft.Experience;
         s.BuyingTerms = BuyingTerms.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         s.SellingTerms = SellingTerms.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        s.Opacity = OpacitySlider.Value; s.WindowTitle = target.Title; controller.Target = target;
+        s.WindowTitle = target.Title; controller.Target = target;
         DialogResult = true;
     }
 }

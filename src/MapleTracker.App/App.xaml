@@ -49,6 +49,45 @@
       <Setter Property="Padding" Value="10,8"/><Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#C8D3E4"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+    <Style x:Key="ModernScrollThumb" TargetType="Thumb">
+      <Setter Property="MinHeight" Value="28"/>
+      <Setter Property="Margin" Value="4,0"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb">
+        <Border x:Name="ThumbBody" Background="#738094" CornerRadius="4" Opacity=".65"/>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbBody" Property="Opacity" Value="1"/></Trigger>
+          <Trigger Property="IsDragging" Value="True"><Setter TargetName="ThumbBody" Property="Background" Value="#A8B5C8"/><Setter TargetName="ThumbBody" Property="Opacity" Value="1"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="12"/><Setter Property="MinWidth" Value="12"/>
+      <Setter Property="Background" Value="Transparent"/><Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+        <Grid Background="Transparent">
+          <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="{TemplateBinding Orientation}"
+                 Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{TemplateBinding Value}" ViewportSize="{TemplateBinding ViewportSize}">
+            <Track.DecreaseRepeatButton><RepeatButton x:Name="DecreasePage" Command="{x:Static ScrollBar.PageUpCommand}" Focusable="False">
+              <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+            </RepeatButton></Track.DecreaseRepeatButton>
+            <Track.Thumb><Thumb x:Name="ScrollThumb" Style="{StaticResource ModernScrollThumb}"/></Track.Thumb>
+            <Track.IncreaseRepeatButton><RepeatButton x:Name="IncreasePage" Command="{x:Static ScrollBar.PageDownCommand}" Focusable="False">
+              <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+            </RepeatButton></Track.IncreaseRepeatButton>
+          </Track>
+        </Grid>
+        <ControlTemplate.Triggers>
+          <Trigger Property="Orientation" Value="Horizontal">
+            <Setter Property="Width" Value="Auto"/><Setter Property="MinWidth" Value="0"/><Setter Property="Height" Value="12"/>
+            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+            <Setter TargetName="ScrollThumb" Property="Margin" Value="0,4"/><Setter TargetName="ScrollThumb" Property="MinHeight" Value="0"/><Setter TargetName="ScrollThumb" Property="MinWidth" Value="28"/>
+            <Setter TargetName="DecreasePage" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+            <Setter TargetName="IncreasePage" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
+          </Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style TargetType="Slider">
       <Setter Property="Height" Value="22"/>
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
