@@ -8,6 +8,7 @@
         <Button Content="Setup" Click="SetupClick"/><Button x:Name="StartButton" Content="Start capture" Style="{StaticResource PrimaryButton}" Click="StartClick" Margin="0,0,7,6"/>
         <Button x:Name="PauseButton" Content="Pause" Click="PauseClick"/><Button Content="Statistics ↗" Click="StatsClick"/>
         <Button x:Name="AlertsButton" Content="Item alerts" Click="AlertsClick"/>
+        <Button Content="Help" Click="HelpClick"/>
         <CheckBox x:Name="PopupToggle" Style="{StaticResource Switch}" Content="Popups" Click="PopupChanged" Height="36" Margin="4,0,12,6"/>
         <CheckBox x:Name="TopCheck" Style="{StaticResource Switch}" Content="Keep on top" Click="TopChanged" Height="36" Margin="0,0,0,6"/>
       </WrapPanel>

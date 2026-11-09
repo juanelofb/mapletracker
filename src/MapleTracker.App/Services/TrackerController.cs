@@ -47,7 +47,7 @@ public sealed class TrackerController
     public TrackerController(TrackerSettings settings)
     {
         Settings = settings;
-        Table = ExperienceTable.Load(Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        Table = ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
         session = new(Table);
         alertMatcher = new(settings);
         timer.Tick += async (_, _) => await Tick();

@@ -5,7 +5,6 @@ namespace MapleTracker.App;
 public partial class AlertsWindow : Window
 {
     private readonly TrackerSettings settings;
-    public event Action<TradeAlert>? PreviewRequested;
 
     public AlertsWindow(TrackerController controller)
     {
@@ -15,7 +14,8 @@ public partial class AlertsWindow : Window
         BuyingList.Text = string.Join(Environment.NewLine, settings.BuyingItems);
         SellingList.Text = string.Join(Environment.NewLine, settings.SellingItems);
         HistoryList.ItemsSource = controller.Alerts;
-        Loaded += (_, _) => WindowAppearance.DarkTitleBar(this);
+        Topmost = settings.AlwaysOnTop;
+        WindowAppearance.SetSurfaceOpacity(this, settings.ChatOpacity);
     }
 
     private static string[] ReadItems(string text) => text.Split(['\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
@@ -36,13 +36,4 @@ public partial class AlertsWindow : Window
         DialogResult = true;
     }
 
-    private void TestClick(object sender, RoutedEventArgs e)
-    {
-        var sell = ReadItems(SellingList.Text).FirstOrDefault();
-        var buy = ReadItems(BuyingList.Text).FirstOrDefault();
-        var item = (sell ?? buy ?? "Steel Ore").Split('|')[0].Trim();
-        var intent = sell != null || buy == null ? MessageKind.Buying : MessageKind.Selling;
-        PreviewRequested?.Invoke(new(DateTimeOffset.Now, "ExampleTrader", item, intent,
-            $"ExampleTrader: {(intent == MessageKind.Buying ? "B>" : "S>")} {item} · popup preview"));
-    }
 }

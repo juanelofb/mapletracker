@@ -4,14 +4,23 @@ namespace MapleTracker.App.Services;
 
 public sealed class SettingsStore
 {
-    public static string DataDirectory => Path.Combine(AppContext.BaseDirectory, "data");
+    public static string DataDirectory => AppContext.GetData("MapleTracker.DataDirectory") as string
+        ?? Environment.GetEnvironmentVariable("MAPLETRACKER_DATA_DIR")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MapleTracker");
     private static string SettingsPath => Path.Combine(DataDirectory, "settings.json");
     public string? Warning { get; private set; }
     public TrackerSettings Load()
     {
         try
         {
-            if (!File.Exists(SettingsPath)) return new();
+            if (!File.Exists(SettingsPath))
+            {
+                // An EXE placed in a previous release folder can import its settings once.
+                var legacy = Path.Combine(AppContext.BaseDirectory, "data", "settings.json");
+                if (!File.Exists(legacy)) return new();
+                Directory.CreateDirectory(DataDirectory);
+                File.Copy(legacy, SettingsPath, false);
+            }
             var json = File.ReadAllText(SettingsPath);
             var value = JsonSerializer.Deserialize<TrackerSettings>(json) ?? throw new JsonException("Empty settings.");
             if (value.Chat == null || value.Loot == null || value.Level == null || value.Experience == null ||

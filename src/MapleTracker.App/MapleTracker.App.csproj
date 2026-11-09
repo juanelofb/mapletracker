@@ -1,9 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.3.7</Version>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <Version>1.0.0</Version>
+    <Product>MapleTracker</Product>
+    <Description>Local chat, trade alerts, loot and EXP tracking for MapleStory.</Description>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -15,9 +17,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MapleTracker.Core\MapleTracker.Core.csproj" />
-    <PackageReference Include="Tesseract" Version="5.2.0" />
-    <Content Include="..\..\data\exp-table.json" Link="data\exp-table.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\data\tessdata\eng.traineddata" Link="tessdata\eng.traineddata" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\data\tessdata\eng.traineddata')" />
-    <Content Include="..\..\data\tessdata\LICENSE" Link="tessdata\LICENSE" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\data\tessdata\LICENSE')" />
+    <PackageReference Include="Tesseract" Version="5.2.0" GeneratePathProperty="true" />
+    <EmbeddedResource Include="..\..\data\exp-table.json" LogicalName="MapleTracker.Assets.exp-table.json" />
+    <EmbeddedResource Include="..\..\data\tessdata\eng.traineddata" LogicalName="MapleTracker.Assets.eng.traineddata" />
+    <EmbeddedResource Include="..\..\data\tessdata\LICENSE" LogicalName="MapleTracker.Assets.OCR-LICENSE.txt" />
+    <EmbeddedResource Include="..\..\README.md" LogicalName="MapleTracker.Assets.README.md" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="MapleTracker.Assets.THIRD-PARTY-NOTICES.txt" />
+    <EmbeddedResource Include="$(PkgTesseract)\x64\*.dll" LogicalName="MapleTracker.Assets.native.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\data\native\x64\*.dll" LogicalName="MapleTracker.Assets.native.%(Filename)%(Extension)" />
   </ItemGroup>
+  <Target Name="RemoveLooseOcrLibraries" BeforeTargets="GetCopyToOutputDirectoryItems;ComputeFilesToPublish">
+    <ItemGroup><None Remove="$(PkgTesseract)\x86\*.dll;$(PkgTesseract)\x64\*.dll" /></ItemGroup>
+  </Target>
 </Project>

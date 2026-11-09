@@ -23,9 +23,8 @@ public sealed partial class OcrReader : IDisposable
     public OcrReader(ExperienceTable table)
     {
         this.table = table;
-        var data = Path.Combine(AppContext.BaseDirectory, "tessdata");
-        if (!File.Exists(Path.Combine(data, "eng.traineddata")))
-            throw new FileNotFoundException("English OCR data is missing. Run scripts/Get-OcrData.ps1, then rebuild.");
+        RuntimeAssets.PrepareNativeOcr();
+        var data = RuntimeAssets.OcrDataDirectory;
         engine = new TesseractEngine(data, "eng", EngineMode.LstmOnly);
         engine.SetVariable("user_defined_dpi", "240");
     }

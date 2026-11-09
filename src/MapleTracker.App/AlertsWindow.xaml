@@ -1,9 +1,9 @@
-<Window x:Class="MapleTracker.App.AlertsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{StaticResource TrackerWindow}" Title="MapleTracker · Item alerts" Width="800" Height="660" MinWidth="660" MinHeight="560" WindowStartupLocation="CenterOwner">
-  <Grid Margin="22">
+<Window x:Class="MapleTracker.App.AlertsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:MapleTracker.App" Style="{StaticResource OverlayWindow}" Title="MapleTracker · Item alerts" Width="800" Height="660" MinWidth="660" MinHeight="560" WindowStartupLocation="CenterOwner">
+  <DockPanel><local:OverlayTitleBar DockPanel.Dock="Top"/>
+  <Grid Margin="22,8,22,20">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Margin="0,0,0,18">
-      <TextBlock Text="Find the other side of your trade" FontSize="23" FontWeight="SemiBold"/>
-      <CheckBox x:Name="EnabledCheck" Style="{StaticResource Switch}" Content="Show popups · matches always remain in history" Margin="0,14,0,0"/>
+      <CheckBox x:Name="EnabledCheck" Style="{StaticResource Switch}" Content="Show popups · matches always remain in history"/>
     </StackPanel>
     <TabControl Grid.Row="1">
       <TabItem Header="My lists">
@@ -19,9 +19,9 @@
         <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="3,4"><TextBlock Text="{Binding Summary}" FontWeight="SemiBold" Foreground="#E1BC70"/><TextBlock Text="{Binding Message}" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/><TextBlock Text="{Binding Time, StringFormat={}{0:HH:mm:ss}}" Foreground="#7589A0" FontSize="11" Margin="0,5,0,0"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
       </ListBox></TabItem>
     </TabControl>
-    <Grid Grid.Row="2" Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Grid Grid.Row="2" Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <TextBlock x:Name="SaveStatus" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,10,0" VerticalAlignment="Center" Text="Popups stay visible until dismissed, without taking game focus."/>
-      <Button x:Name="TestButton" Grid.Column="1" Content="Test popup" Click="TestClick"/><Button Grid.Column="2" Content="Cancel" IsCancel="True"/><Button x:Name="SaveButton" Grid.Column="3" Content="Save lists" Background="#DF755E" Foreground="#111722" Click="SaveClick" Margin="0"/>
+      <Button Grid.Column="1" Content="Cancel" IsCancel="True"/><Button x:Name="SaveButton" Grid.Column="2" Content="Save lists" Style="{StaticResource PrimaryButton}" Click="SaveClick" Margin="0"/>
     </Grid>
-  </Grid>
+  </Grid></DockPanel>
 </Window>

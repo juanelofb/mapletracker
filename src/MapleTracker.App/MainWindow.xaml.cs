@@ -84,13 +84,11 @@ public partial class MainWindow : Window
     private void AlertsClick(object sender, RoutedEventArgs e)
     {
         var dialog = new AlertsWindow(controller) { Owner = this };
-        dialog.PreviewRequested += ShowAlert;
         if (dialog.ShowDialog() == true)
         {
             Save();
             controller.SetPopupsEnabled(controller.Settings.AlertsEnabled);
         }
-        dialog.PreviewRequested -= ShowAlert;
     }
     private void ShowAlert(TradeAlert alert)
     {
@@ -108,6 +106,7 @@ public partial class MainWindow : Window
         if (stats == null || !stats.IsLoaded) { stats = new StatsWindow(controller, () => SetupClick(this, new RoutedEventArgs())); stats.Closed += (_, _) => stats = null; stats.Show(); }
         else { stats.Show(); stats.Activate(); }
     }
+    private void HelpClick(object sender, RoutedEventArgs e) => new HelpWindow(controller.Settings) { Owner = this }.Show();
     private void TopChanged(object sender, RoutedEventArgs e) { Topmost = TopCheck.IsChecked == true; controller.Settings.AlwaysOnTop = Topmost; if (stats != null) stats.Topmost = Topmost; Save(); }
     private void Save()
     {

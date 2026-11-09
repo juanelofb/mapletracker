@@ -19,6 +19,7 @@ internal static class Program
     [STAThread]
     private static int Main()
     {
+        AppContext.SetData("MapleTracker.DataDirectory", System.IO.Path.Combine(AppContext.BaseDirectory, "data"));
         var app = new App.App();
         app.InitializeComponent();
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -39,6 +40,7 @@ internal static class Program
             CheckGameplayFrames();
             CheckBadgeScreenshot();
             CheckRepeatFixtures();
+            CheckBundledAssets();
             Console.WriteLine($"\n{passed} WPF regression checks passed.");
             return 0;
         }
@@ -153,6 +155,15 @@ internal static class Program
             {
                 Check(((TextBox)dialog.FindName("BuyingList")).Text == "Steel Ore", "alert editor loads buying list");
                 Check(((TextBox)dialog.FindName("SellingList")).Text == "Potions", "alert editor loads selling list");
+                var preview = Environment.GetEnvironmentVariable("MAPLETRACKER_ALERTS_PREVIEW");
+                if (save && !string.IsNullOrEmpty(preview))
+                {
+                    dialog.UpdateLayout();
+                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)dialog.ActualWidth, (int)dialog.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    bitmap.Render(dialog);
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var output = System.IO.File.Create(preview); encoder.Save(output);
+                }
                 ((TextBox)dialog.FindName("BuyingList")).Text = "  Gloves Attack Scroll | Glove att\r\nSteel Ore\r\nsteel ore  ";
                 ((TextBox)dialog.FindName("SellingList")).Text = "Dagger Attack Scroll\r\nPotions";
                 ((CheckBox)dialog.FindName("EnabledCheck")).IsChecked = false;
@@ -218,7 +229,7 @@ internal static class Program
             (Environment.GetEnvironmentVariable("MAPLETRACKER_LATEST_SCREENSHOT"), 54754L),
             (Environment.GetEnvironmentVariable("MAPLETRACKER_FADING_SCREENSHOT"), 55187L)
         };
-        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        var table = ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
         using var reader = new OcrReader(table);
         foreach (var (path, expected) in cases)
         {
@@ -251,7 +262,7 @@ internal static class Program
         if (string.IsNullOrEmpty(directory)) return;
         var settings = System.Text.Json.JsonSerializer.Deserialize<TrackerSettings>(System.IO.File.ReadAllText(System.IO.Path.Combine(directory, "tight-settings.json")))!;
         settings.ChatHistoryOnly = true;
-        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        var table = ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
         using var reader = new OcrReader(table);
         foreach (var (suffix, exp) in new[] { ("-2", 32255L), ("-4", 32263L), ("-5", 32263L) })
         {
@@ -280,7 +291,7 @@ internal static class Program
         var badges = ChannelBadges.Find(image, Console.WriteLine);
         Console.WriteLine("Badge bounds: " + string.Join("; ", badges.Select(r => r.ToString())));
         Check(badges.Length == 6, "all six channel/ear rectangles are detected across cyan, pink and yellow rows");
-        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        var table = ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
         using var reader = new OcrReader(table);
         foreach (var quality in Enum.GetValues<RecognitionQuality>())
         {
@@ -295,7 +306,7 @@ internal static class Program
     {
         var folder = Environment.GetEnvironmentVariable("MAPLETRACKER_REPEAT_FIXTURES");
         if (string.IsNullOrEmpty(folder)) return;
-        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        var table = ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
         using var reader = new OcrReader(table);
         // Frozen frame 1 is unreadable in the previous release; frame 2's accepted
         // value is 33,199 (the screenshot's 33,189 differs by 10 within HUD tolerance).
@@ -312,6 +323,17 @@ internal static class Program
             if (name == "game-final" && quality == RecognitionQuality.High)
                 Check(frame.Chat.Any(line => new TradeClassifier(settings).Classify(line).HasFlag(MessageKind.Selling)), "high preset recognizes selling intent on the previously repeating Scaat banner");
         }
+    }
+
+    private static void CheckBundledAssets()
+    {
+        var tablePath = RuntimeAssets.ExperienceTablePath;
+        System.IO.File.WriteAllText(tablePath, "corrupted cache fixture");
+        Check(ExperienceTable.Load(RuntimeAssets.ExperienceTablePath).Absolute(100, 0) == 18194778397L, "bundled EXP table repairs an altered cache without external data files");
+        var guide = RuntimeAssets.ReadGuide();
+        Check(guide.Contains("Buying terms") && guide.Contains("I WANT TO BUY") && guide.Contains("Items") && guide.Contains("cumulative session"), "bundled guide covers custom tags, trade watchlists, pickups and cumulative statistics");
+        var help = new HelpWindow(new TrackerSettings()); help.Show(); help.Close();
+        Check(RuntimeAssets.ReadNotices().Contains("Apache License"), "third-party notices are available from embedded assets");
     }
 
     private static void CheckMainWindowClosing()

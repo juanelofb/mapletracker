@@ -1,97 +1,139 @@
-# MapleTracker
+# MapleTracker 1.0
 
-A local C# / WPF companion for MapleStory chat, loot and grinding sessions. Two independent, movable desktop windows keep the game clear. The first version targets Windows 10/11 x64 and .NET 9 Desktop Runtime.
+MapleTracker is a Windows companion for MapleStory. It reads visible game text and puts chat, market messages, picked-up items, and training statistics in movable windows beside the game. It does not send chat, control your character, or read game memory.
 
-## Run
+## Start here
 
-Build with the .NET 9 SDK:
+1. Run MapleTracker.exe. The Windows x64 release includes its runtime, OCR engine, English recognition model, and EXP table. You do not need to install .NET or keep library/model files beside the EXE.
+2. Run the game in windowed or borderless mode. Keep the text you want to capture visible.
+3. Click Setup, choose MapleStory, and Take snapshot. Tracker windows briefly disappear from the snapshot without closing Setup.
+4. Select each region and draw a box around its text: Chat messages, Loot notifications, Level number, and EXP number + percentage. Include every loot notification row you want to track. For EXP, include both the number and percentage, not just the yellow bar.
+5. For the recommended compact layout, collapse in-game chat to one white/gray bar and click Use white chat bar. Leave Chat history only off. Adjust the default box if your layout differs.
+6. Click Test recognition, review the text, then Save setup. Move tracker windows away from the selected game regions.
+7. Click Start capture and focus the game.
 
-```powershell
-./scripts/Build.ps1 -Publish
-./artifacts/MapleTracker/MapleTracker.App.exe
-```
+Capture waits while the game is unfocused, minimized, or covered by another window over a selected text region. Exclusive fullscreen is not supported. The boxes follow window movement and scale with its size, but changing the game's UI layout may require new boxes.
 
-The English Tesseract model is included. The script can download it again if missing. OCR runs locally; the running app has no network service or API key. Native Tesseract dependencies may require the Microsoft Visual C++ 2015–2022 x64 runtime on another PC.
+Saving a different capture source or different regions begins a new displayed session, clearing chat, item totals, alerts, and statistics. Existing session journals stay on disk.
 
-1. Run the game in windowed or borderless mode.
-2. Open **Setup**, choose the game window, and **Take snapshot**. Tracker windows briefly become transparent while the game is captured; the setup dialog stays open until you save or cancel.
-3. Choose each colored region and drag a tight box around **chat messages**, **loot notifications**, **level number**, and **EXP number plus percentage**. Include text, not just the colored EXP bar. Defaults match the original 1908×1080 reference image.
-   Use the compact white chat bar with **Chat history only** off. **Use white chat bar** selects its default region; collapse in-game chat to one bar and adjust the box if needed. Typing in-game can hide messages and cause missed or incorrect captures; the chat window shows this reminder. Expanded history capture remains optional: select only received messages above the typing field and enable **Chat history only**.
-4. Use **Test recognition** to review the text. Fix the regions if needed, then **Save setup**.
-5. Move both tracker windows away from the capture regions. Press **Start capture** and focus the game.
+Typing in-game can replace the received message with your draft, causing missed or incorrect captures. MapleTracker shows this reminder in white-bar mode. It cannot recover messages hidden by the game while you type.
 
-The app uses visible screen capture relative to the game client rectangle. Coordinates follow window movement and scale with resizing. Game UI layout changes still require recalibration. Capture and the active-session clock pause while the game is not the foreground window, is minimized, or another visible window overlaps a configured text region. This version does not capture a minimized or occluded game. Exclusive fullscreen is not supported.
+## Chat window
 
-**Start capture / Pause** control OCR capture. The statistics window has independent **Start / Stop / Reset** controls: Stop freezes EXP, meso and the session clock while chat, loot and market alerts keep running; Start resumes from your current EXP and excludes EXP earned during the stopped interval. Reset clears only statistics and preserves their current running/stopped state. It leaves chat, item totals and alert history intact. Closing chat exits all tracker windows, including popups. Statistics can be closed and reopened.
+- All: recognized incoming chat messages. Pickup notifications have their own Items tab.
+- Buying: messages recognized as someone wanting to buy something.
+- Selling: messages recognized as someone selling something.
+- Items: recognized item pickup notifications and totals by item name.
+- Search messages: filter the tab you are viewing by a name, item, or phrase. It does not send anything to the game or change your watchlists.
+- Follow new: automatically scroll to new entries. Turn it off to read older messages.
+- Start capture / Pause: start or pause OCR for chat, loot, alerts, and statistics. Pause preserves the current session.
+- Statistics: open or bring back the separate statistics window.
+- Item alerts: edit your buying/selling watchlists and see match history. The number in parentheses is the number of retained matches.
+- Popups: enable or disable visible matching-item notifications. Match history continues while popups are off.
+- Keep on top: keep chat and statistics above other windows.
+- Help: open this guide or the bundled third-party notices.
 
-The dark windows use joined tabs and a custom title bar. Drag the title bar to move them; drag the bottom-right grip to resize. Each window has its own **Transparency** slider: chat and statistics are independent, and text remains fully opaque. Values run from 0% (opaque) to 60% transparent. Old shared transparency settings migrate to both windows initially. Preferences, positions and sizes are saved. Search filters the active tab; the empty field shows **Search messages…**. Scrollbars use a slim rounded thumb without arrow buttons. Demo and Export have been removed.
+Drag a window by its title bar and resize it using its bottom-right corner. Chat and statistics each have their own Transparency slider; changing one does not change the other. Text stays opaque for readability. Positions, sizes, transparency, and preferences are saved.
 
-## Item alerts
+## Set your own buying and selling tags
 
-Open **Item alerts** in the chat window. Put one item per line in **I want to buy** or **I want to sell**, then **Save lists**. These lists are separate from the Buying/Selling chat tabs.
+Open Setup. Buying terms and Selling terms are comma-separated lists of words or tags that identify the intent of a message.
 
-- Your buying list finds sellers: `Alice: S> Steel Ore` produces **Alice is selling Steel Ore**.
-- Your selling list finds buyers: `Bob: B> Potions` produces **Bob wants to buy Potions**.
-- Names match case-insensitively with punctuation and word boundaries. Use `|` for explicit aliases, for example `Gloves Attack Scroll | Glove att`. The first alias is the popup's display name. Matching does not guess misspelled OCR text; add aliases for abbreviations you see in chat.
-- Item links before a marker and spaced markers such as `S >` are supported. Separate buying/selling clauses are matched by direction.
-- Popups appear at the bottom-right of the monitor containing chat, inside its visible work area, without taking game focus. They are independent topmost windows, so minimizing chat does not hide them. A popup stays until dismissed; additional matches queue instead of replacing it. Dismiss the visible popup to see the next one.
-- The **Popups** switch on chat, also available in Item alerts, disables visible popups and clears the popup queue. Match detection and **Alert history** continue while popups are off. History retains up to 200 entries and clears on app restart or a capture-source reset.
-- The same recognized player, item and direction trigger at most once every 60 seconds. Other players still trigger independently.
-- **Test popup** previews a notification using your draft list. The enable toggle and both lists are saved in settings.
+Example Buying terms:
 
-## Tabs and calculations
+    Buying, Buy, B>, WTB, purchase
 
-- **All** contains every newly observed chat message; trade messages also appear in their matching tabs.
-- **Buying / Selling** use literal, case-insensitive keywords with word boundaries. Edit comma-separated terms in Setup. A message can match both tabs. Player names before `:` are ignored for categorization.
-- **Items** contains pickup notifications and a total per recognized item name. Truncated names stay truncated.
-- EXP is read from the numeric HUD. The supplied `data/exp-table.json` provides the requirements for levels 1–99, using 64-bit integers. The sum to reach level 100 is 18,194,778,397. Level 100 has no fabricated next-level estimate.
-- EXP gain is the difference in total character progression since the session baseline. Level-ups and EXP losses are accounted for. EXP notifications are not added again.
-- Meso looted counts recognized pickup amounts; it does not measure wallet balance, spending or trading. Supported examples: `You have gained mesos (+125)` and `You received 1,250 mesos.` Actual server wording may need another parser rule.
-- Per-minute/hour rates and time to next level use the cumulative session average: total net EXP gained divided by active tracking time since Reset. ETA appears after 15 seconds when that average is positive. Every active minute contributes, so longer sessions smooth out short bursts and slow periods. Idle time with capture running lowers the average gradually; Stop freezes it, Start continues it, and Reset starts a new average. The displayed **Session avg** uses this same pace. It is an estimate, not a guarantee.
+Example Selling terms:
 
-## Recognition limits
+    Selling, Sell, S>, WTS, offer for sale
 
-Setup includes **Recognition quality**: **Low** tries 1 contrast view per chat row/part, **Balanced** tries 2, and **High** tries 4 and compares candidates. Sender and body are separate parts when a channel badge is detected. Extra attempts increase CPU work; all presets share one OCR model and reuse sequential image buffers. High can help difficult text but cannot guarantee correct names, markers or prices. HUD validation and loot confirmation stay enabled in every preset. **Test recognition** reports elapsed OCR milliseconds, chat pass count, and current app working-set memory. Recognition details also show live measurements. These are actual measurements on your PC, not fixed RAM requirements or promised accuracy percentages.
+For example, adding purchase makes Alice: purchase Steel Ore appear in Buying. Add S< to Selling terms if players use that tag on your server.
 
-**Omit channel / ear badges** is enabled by default. Detected cream channel rectangles are excluded before the sender and body are recognized separately. Stacked badges are handled per row. Text clipped by the game or screenshot cannot be recovered by a higher quality preset.
+Matching ignores case. Words use boundaries: buy does not automatically match buying, so add both if you want both. Tags are literal text, not regular expressions. Sender names before the colon do not determine the category. A message containing both buying and selling tags may appear in both tabs.
 
-The capture interval defaults to 500 ms. OCR runs on one background worker; frames never queue up. Small fonts, colored text, faded text, noisy backgrounds, wrapped chat and fast chat can reduce accuracy. A notification must be visible when a frame is captured. Text that the game hides or truncates cannot be recovered.
+These same terms determine the trade direction used by item alerts. They describe what other players are doing; your personal buying and selling lists are separate.
 
-Chat uses ordered overlap across frames. With **Chat history only** enabled, OCR uses separate contrast views for ordinary text and colored banners. A visible message retains its original matching anchor rather than being appended again when letters or digits drift. Two frames must agree on the numeric text before a new entry is published. Blank reads and rejected fragments do not erase that anchor. Recognizable player messages and party/guild join/leave notices are retained; short fragments and unverified sender text are ignored. Very short-lived messages may be missed. Immediately consecutive near-identical posts from the same or OCR-similar sender may be merged; a repost after a different message is retained. Keep the typing field outside the history region.
+## Watch items you want to buy or sell
 
-With **Chat history only** off, chat accepts recognizable `Player: message` lines. Text without a valid sender, empty bodies, and input-channel prefixes such as `All:` are ignored. This conservative guard can skip system messages and channel banners. Drafts and blank OCR frames do not clear the last received message. A draft formatted exactly like a real player message remains ambiguous. Screenshot OCR cannot recover incoming messages that the input field hides.
+Click Item alerts and open My lists. Put one item per line, then Save lists. Cancel discards your edits.
 
-Loot tries two contrast levels to separate white notification text from scenery. Both passes measure brightness from the source pixels. Alternative readings of the same row are merged before tracking, so they cannot count as two sightings. Loot uses separate notification lifetimes, row positions, upward movement, and brightness changes, with two readable frames agreeing on the amount required before counting a pickup or meso message. One high-confidence numeric outlier cannot be confirmed by another frame with a different amount. Missing OCR rows are retained briefly, so fading `Leaf` / `Leat` variants do not repeatedly add the same pickup. A fresh notification, or another identical row entering the feed, can still count separately. Low-confidence or very short-lived notifications may be missed. If a notification is replaced by an identical one without a visible change, the distinction is inherently ambiguous; this version favors avoiding inflated totals.
+I WANT TO BUY looks for sellers. If you add Steel Ore, Alice: S> Steel Ore can trigger Alice is selling Steel Ore.
 
-HUD recognition tries several contrast/segmentation settings and validates the numeric EXP value against its displayed percentage to within 0.03 percentage points. When one OCR pass reads the number well and another reads the percentage well, consistent evidence can be combined. Contradictory or partial evidence is rejected. Include both the number and percentage in your EXP selection. Baselines, large jumps, losses and level changes require successive plausible observations. The statistics window shows how long ago EXP was last confirmed; an old value is not proof that OCR is still succeeding. Verify OCR against gameplay before relying on totals or alerts.
+I WANT TO SELL looks for buyers. If you add Orange Potion, Bob: B> Orange Potion can trigger Bob wants to buy Orange Potion.
 
-Recognition details are available in the statistics window. Setup's recognition test shows the raw OCR and validated HUD.
+To recognize different names for the same item, put aliases on one line separated by |:
 
-During capture, `data/recognition-last.json` is refreshed every two seconds with capture/statistics state, chat mode, ignored-line count, OCR candidates, loot row observations, and last confirmed EXP time. It stays local and contains no screen images. When capture pauses, its timestamp stops updating.
+    Gloves for Attack | GFA | Glove att
+    Steel Ore
 
-For repeatable offline troubleshooting:
+The first name is used in the popup. Aliases ignore case and punctuation and match whole words. They do not guess arbitrary OCR misspellings. Add the abbreviations players actually use. Using one alias group per item also avoids treating each alias as a separate watchlist item.
 
-```powershell
-./src/MapleTracker.App/bin/Release/net9.0-windows/MapleTracker.App.exe --verify-screenshot C:/path/to/screenshot.png C:/path/to/diagnostics
-```
+## Popups and alert history
 
-This writes original crops, processed crops, `recognition.json`, and `hud-attempts.json`, using the default reference regions. Optionally pass a settings JSON path as the last argument to use your saved regions. It exits with code 1 on errors; see `data/startup-error.log` beside the executable.
+Matching-item popups appear near the bottom-right of the monitor containing chat, without taking focus from the game. A popup stays until dismissed. Further matches queue behind it.
 
-## Data and development
+The same recognized player, item, and trade direction trigger at most once per 60 seconds. Different players can trigger independently. If OCR misreads a name, it can affect matching and duplicate suppression.
 
-Settings and session data live beside the executable in `data/`. Use a writable folder. Chat and item entries append to timestamped `data/sessions/*.jsonl`; the UI retains up to 5,000 entries. Session history is not automatically restored after restart. Nothing is uploaded.
+The Popups switch on chat and Show popups in Item alerts control visible notifications. Turning popups off clears displayed/queued notifications but keeps detecting matches in Alert history. Save lists applies changes made inside the alert window.
 
-- `src/MapleTracker.Core` — trade matching, OCR text parsers, ordered line tracking, EXP table and session math.
-- `src/MapleTracker.App` — WPF UI, Win32 screen capture, local Tesseract OCR, settings and logs.
-- `tests/MapleTracker.Checks` — deterministic checks of rollover, losses, ETA, duplicate handling, parsers, categories and table totals.
-- `tests/MapleTracker.AppChecks` — WPF regression checks of setup, saved watchlists, background popup delivery with chat minimized, popup queueing and dismissal, monitor bounds, focus preservation, independent statistics controls, and transparency. These use a synthetic capture source and briefly open test windows. Optional `MAPLETRACKER_ORIGINAL_SCREENSHOT`, `MAPLETRACKER_LATEST_SCREENSHOT`, and `MAPLETRACKER_FADING_SCREENSHOT` environment variables run OCR checks against local game-client image fixtures; user screenshots are never committed.
+Alert history retains up to 200 matches for the current session. Restarting the app or resetting the capture source clears the visible history. A parenthesized count on Item alerts does not mean a popup is still open or unread.
 
-```powershell
-dotnet run --project tests/MapleTracker.Checks
-dotnet run --project tests/MapleTracker.AppChecks
-dotnet run --project src/MapleTracker.App
-```
+## Picked-up items
 
-Capture is currently GDI visible-screen capture. Windows Graphics Capture is a future upgrade for better occlusion handling. No game process memory access, injection, gameplay inputs or chat sending are implemented.
+The Items tab reads item pickup notifications near the bottom-right of the game. It shows a timestamped pickup feed, the total quantity picked up, and totals grouped by recognized item name.
 
-Third-party code: Tesseract .NET wrapper (Apache 2.0), Tesseract/Leptonica native dependencies, and the English tessdata_fast model (Apache 2.0; license included in `data/tessdata`).
+It tracks what was picked up, not everything currently in your inventory. It does not subtract items you use, sell, trade, or drop. The in-game notification can shorten a name with dots; MapleTracker cannot recover the hidden part. OCR spelling variants can split one item into multiple displayed types.
+
+Two readable frames must agree on a quantity before counting it. Fade tracking reduces repeated counts from lingering notifications, but very brief, obscured, or badly read notifications can still be missed or counted incorrectly.
+
+## EXP, meso, and time to level
+
+Statistics is a separate movable window with independent Start, Stop, and Reset controls.
+
+- Start: resume statistics from your current EXP. Gains while statistics were stopped are excluded. Chat capture and trade alerts have their own capture controls.
+- Stop: freeze EXP/meso totals and active time while chat, item tracking, and alerts can continue.
+- Reset: clear statistics and start a fresh average. It preserves the current running/stopped state and does not clear chat, item totals, or alert history.
+
+The level card shows the recognized level, current EXP, EXP required for the next level, progress percentage, remaining EXP, and how recently the HUD was confirmed. The supplied table covers progression through level 100. There is no invented next-level requirement at level 100.
+
+EXP gained is net character progress from the session baseline, including level-ups and EXP losses. EXP pickup notifications are not added again. Meso looted is the sum of recognized meso pickup notifications, not your wallet balance; spending and trading are not measured.
+
+EXP/hour, meso/hour, per-minute rates, and Session avg use active tracking time. Time to next level uses the cumulative session EXP average:
+
+    Average pace = total net EXP gained / active tracking time
+    Time remaining = EXP left to next level / average pace
+
+All active time since Reset contributes, rather than only the last five minutes. A longer session smooths out short bursts and slow periods. Idle time while capture stays active gradually lowers the average. Stop/Start preserves the average; Reset or restarting the app starts a new session. An estimate appears after at least 15 seconds and a positive average.
+
+## Recognition settings
+
+Low uses one contrast view per chat row/part. Balanced uses two. High uses four and compares candidates. When a channel badge is detected, the sender and body are separate parts. More attempts cost more CPU time; High can help difficult text but cannot guarantee correct names, tags, prices, or quantities.
+
+All presets share one OCR model and process image buffers sequentially. Test recognition shows actual processing milliseconds, pass count, and current app memory on your PC. Recognition details in Statistics show live measurements. These are measurements, not fixed RAM requirements or accuracy promises.
+
+Omit channel / ear badges excludes detected megaphone channel rectangles before reading their sender and body. This is mainly useful for expanded history capture. White-bar capture starts with the contrast view used for the original compact game bar.
+
+Chat history only is an optional alternative for a separate received-message region above the typing field. Exclude the input field from that region. It uses extra confirmation to reduce fragments and repeated OCR variants. Very short-lived messages may be skipped. Consecutive near-identical messages may be merged; a repost after a different message is retained.
+
+## If something looks wrong
+
+- No new text: start capture, focus the game, and uncover every selected region.
+- Typing hides incoming messages: this is a limitation of the shared white bar. Finish typing or pause capture until you finish.
+- Missing or garbled text: take a fresh Setup snapshot, tighten the boxes, and test recognition. Try Balanced or High on the same snapshot to compare. Include all loot rows and the full EXP number plus percentage.
+- Stale EXP: check the confirmation age and Recognition details. A displayed value may be old; redraw the level and EXP boxes if necessary.
+- No item alert: check the buying/selling direction, your custom tags, item aliases, popup switch, and Alert history. Repeated matches may be in the 60-second cooldown.
+- Repeated or incorrect items/meso: check the notification region and compare totals with gameplay. OCR-derived totals are estimates, not an inventory or accounting record.
+
+## Standalone files and saved data
+
+Only MapleTracker.exe is required to run the Windows x64 release. First launch automatically unpacks bundled components into a local cache; no library/model download or separate runtime install is required. This guide and the third-party notices are built into Help.
+
+Preferences, watchlists, runtime cache, recognition diagnostics, and session journals are stored under:
+
+    %LOCALAPPDATA%\MapleTracker
+
+Nothing is uploaded by MapleTracker. Moving the EXE does not move or reset these saved preferences. Visible chat/item history and statistics start fresh each launch; the automatic session journals remain on disk.
+
+To import an older portable release's preferences, place the new EXE in the old release folder for its first launch. If no new-format settings exist yet, it imports data\settings.json from beside the EXE. Legacy data is left intact.
+
+The executable is unsigned. Supported target: Windows 10/11 x64 with permission to write local application data and temporary extraction files. Source/build instructions are in DEVELOPMENT.md; third-party licenses are available through Help > Third-party notices.
