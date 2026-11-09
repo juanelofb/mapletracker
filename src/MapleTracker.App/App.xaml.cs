@@ -22,13 +22,14 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         try
         {
-            if (e.Args.Length == 3 && (e.Args[0] == "--verify-screenshot" || e.Args[0] == "--probe-screenshot"))
+            if (e.Args.Length is 3 or 4 && (e.Args[0] == "--verify-screenshot" || e.Args[0] == "--probe-screenshot"))
             {
                 var table = ExperienceTable.Load(Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
                 using var bitmap = new Bitmap(e.Args[1]);
                 using var ocr = new OcrReader(table);
-                ocr.Read(bitmap, new TrackerSettings(), e.Args[2]);
-                if (e.Args[0] == "--probe-screenshot") ocr.Probe(bitmap, new TrackerSettings(), e.Args[2]);
+                var verificationSettings = e.Args.Length == 4 ? System.Text.Json.JsonSerializer.Deserialize<TrackerSettings>(File.ReadAllText(e.Args[3])) ?? new() : new TrackerSettings();
+                ocr.Read(bitmap, verificationSettings, e.Args[2]);
+                if (e.Args[0] == "--probe-screenshot") ocr.Probe(bitmap, verificationSettings, e.Args[2]);
                 Shutdown(0); return;
             }
             var store = new SettingsStore();

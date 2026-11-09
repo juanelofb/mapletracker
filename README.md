@@ -23,6 +23,18 @@ The app uses visible screen capture relative to the game client rectangle. Coord
 
 **Demo** starts a clearly labeled simulated session, with no game required. It resets the current in-memory session. **New session** clears the current view and counters; previously written logs remain. **Pause** preserves the session. Closing the chat window exits both windows. Statistics can be closed and reopened. Opacity and always-on-top are configurable; positions and sizes are saved.
 
+## Item alerts
+
+Open **Item alerts** in the chat window. Put one item per line in **I want to buy** or **I want to sell**, then **Save lists**. These lists are separate from the Buying/Selling chat tabs.
+
+- Your buying list finds sellers: `Alice: S> Steel Ore` produces **Alice is selling Steel Ore**.
+- Your selling list finds buyers: `Bob: B> Potions` produces **Bob wants to buy Potions**.
+- Names match case-insensitively with punctuation and word boundaries. Use `|` for explicit aliases, for example `Gloves Attack Scroll | Glove att`. The first alias is the popup's display name. Matching does not guess misspelled OCR text; add aliases for abbreviations you see in chat.
+- Item links before a marker and spaced markers such as `S >` are supported. Separate buying/selling clauses are matched by direction.
+- Popups appear over the tracker for 12 seconds without taking game focus. A newer match updates the popup; every match stays in **Alert history**, up to 200 entries per session. History clears with **New session** or app restart.
+- The same recognized player, item and direction trigger at most once every 60 seconds. Other players still trigger independently.
+- **Test popup** previews a notification using your draft list. The enable toggle and both lists are saved in settings.
+
 ## Tabs and calculations
 
 - **All** contains every newly observed chat message; trade messages also appear in their matching tabs.
@@ -37,7 +49,7 @@ The app uses visible screen capture relative to the game client rectangle. Coord
 
 The capture interval defaults to 500 ms. OCR runs on one background worker; frames never queue up. Small fonts, colored text, faded text, noisy backgrounds, wrapped chat and fast chat can reduce accuracy. A notification must be visible when a frame is captured. Text that the game hides or truncates cannot be recovered.
 
-Ordered overlap across frames prevents unchanged lines from being added repeatedly and retains identical new lines when the feed visibly scrolls. An identical single-line message replaced by another identical message without a visible change is inherently ambiguous. Two consecutive empty observations clear the overlap history. Low-confidence lines are omitted, while HUD readings are checked against level requirements and the displayed percentage when available. Baselines, large jumps, losses and level changes require successive plausible observations. This is a first OCR implementation; verify it against your gameplay before relying on totals.
+Ordered overlap across frames prevents unchanged lines from being added repeatedly and retains identical new lines when the feed visibly scrolls. An identical single-line message replaced by another identical message without a visible change is inherently ambiguous. Two consecutive empty observations clear the overlap history. Low-confidence chat lines are omitted. HUD recognition tries several contrast/segmentation settings and requires a complete numeric EXP value plus its displayed percentage, consistent with the level table to within 0.03 percentage points. Include both in your EXP selection. Garbled or partial text cannot establish an EXP baseline. Baselines, large jumps, losses and level changes require successive plausible observations. Verify OCR against your gameplay before relying on totals or alerts.
 
 Recognition details are available in the statistics window. Setup's recognition test shows the raw OCR and validated HUD. For repeatable offline troubleshooting:
 
@@ -45,7 +57,7 @@ Recognition details are available in the statistics window. Setup's recognition 
 ./src/MapleTracker.App/bin/Release/net9.0-windows/MapleTracker.App.exe --verify-screenshot C:/path/to/screenshot.png C:/path/to/diagnostics
 ```
 
-This writes original crops, processed crops, and `recognition.json`, using the default reference regions. It exits with code 1 on errors; see `data/startup-error.log` beside the executable.
+This writes original crops, processed crops, `recognition.json`, and `hud-attempts.json`, using the default reference regions. Optionally pass a settings JSON path as the last argument to use your saved regions. It exits with code 1 on errors; see `data/startup-error.log` beside the executable.
 
 ## Data and development
 
@@ -54,7 +66,7 @@ Settings and session data live beside the executable in `data/`. Use a writable 
 - `src/MapleTracker.Core` — trade matching, OCR text parsers, ordered line tracking, EXP table and session math.
 - `src/MapleTracker.App` — WPF UI, Win32 screen capture, local Tesseract OCR, settings and logs.
 - `tests/MapleTracker.Checks` — deterministic checks of rollover, losses, ETA, duplicate handling, parsers, categories and table totals.
-- `tests/MapleTracker.AppChecks` — WPF regression checks of snapshot → Save, repeated snapshots, cancellation, capture failure, and persisted setup. These use a synthetic capture source and briefly open test windows.
+- `tests/MapleTracker.AppChecks` — WPF regression checks of snapshot → Save, repeated snapshots, cancellation, capture failure, persisted setup and watchlists, notification delivery, and popup focus. These use a synthetic capture source and briefly open test windows. Optional `MAPLETRACKER_ORIGINAL_SCREENSHOT` / `MAPLETRACKER_LATEST_SCREENSHOT` environment variables run OCR checks against local game-client image fixtures; user screenshots are never committed.
 
 ```powershell
 dotnet run --project tests/MapleTracker.Checks

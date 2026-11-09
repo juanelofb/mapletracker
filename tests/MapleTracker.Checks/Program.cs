@@ -38,6 +38,11 @@ Check(TextParsing.Mesos("You received 1,250 mesos.") == 1250, "meso amount befor
 Check(TextParsing.Mesos("Player: selling stuff") == null, "unrelated line has no meso gain");
 Check(TextParsing.Hud("LV. 27", "EXP 50,548 [79.40%]", table) == new HudReading(27, 50548), "screenshot HUD parsed and percentage validated");
 Check(TextParsing.Hud("27", "EXP 50.548 79.40%", table) == new HudReading(27, 50548), "OCR thousands separator supported");
+Check(TextParsing.Hud("27", "XP 54.754 86.00%", table) == new HudReading(27, 54754), "latest screenshot EXP parsed");
+Check(TextParsing.Hud("27", "XR s4.7s¢ 96.00%", table) == null, "garbled EXP cannot become a lone 4");
+Check(TextParsing.Hud("27", "4", table) == null, "unverified digit rejected");
+Check(TextParsing.Hud("27", "EXP 54,954 [86.00%]", table) == null, "wrong digit fails strict percentage validation");
+Check(TextParsing.Hud("27", "EXP 54,754[86.00%]", table) == new HudReading(27, 54754), "percentage bracket provides numeric boundary");
 Check(TextParsing.Hud("27", "50548 [19.40%]", table) == null, "inconsistent OCR percentage rejected");
 Check(TextParsing.Hud("27", "999999", table) == null, "impossible current EXP rejected");
 Check(TextParsing.Hud("999", "100", table) == null, "impossible level rejected");
@@ -62,4 +67,35 @@ session.Observe(new(27, 1000), TimeSpan.Zero); session.Snapshot(TimeSpan.Zero);
 session.Observe(new(27, 1100), TimeSpan.FromMinutes(1)); session.Snapshot(TimeSpan.FromMinutes(1));
 for (int i = 2; i <= 8; i++) session.Snapshot(TimeSpan.FromMinutes(i));
 Check(session.Snapshot(TimeSpan.FromMinutes(8)).RecentExperiencePerMinute == 0, "rolling pace decays to zero after no gains");
+Check(classifier.Classify("Player: S > Steel Ore") == MessageKind.Selling, "spaced trade marker recognized");
+Check(TradeMessage.Parse("Player: [Dagger Attack Scroll: Greater] S> 10m").Player == "Player", "linked item colon does not replace player name");
+Check(TradeMessage.Parse("[Dagger Attack Scroll: Greater] S> 10m").Player == "A player", "missing player is not invented from an item link");
+var watchSettings = new TrackerSettings
+{
+    BuyingItems = ["Steel Ore", "Gloves Attack Scroll | Glove att"],
+    SellingItems = ["Dagger Attack Scroll: Greater", "Potions"]
+};
+var alerts = new TradeAlertMatcher(watchSettings);
+var now = DateTimeOffset.Parse("2026-11-09T12:00:00Z");
+var matches = alerts.Match("Alice: S> steel ore x20", now);
+Check(matches.Count == 1 && matches[0].Summary == "Alice is selling Steel Ore", "buying watchlist finds a seller");
+matches = alerts.Match("Bob: B> Dagger Attack Scroll: Greater", now);
+Check(matches.Count == 1 && matches[0].Summary == "Bob wants to buy Dagger Attack Scroll: Greater", "selling watchlist finds a buyer");
+Check(alerts.Match("WrongSide: WTB Steel Ore", now).Count == 0, "buying watchlist ignores another buyer");
+Check(alerts.Match("WrongSide: WTS potions", now).Count == 0, "selling watchlist ignores another seller");
+Check(alerts.Match("Eve: [Steel Ore] S > 120 each", now).Count == 1, "linked item before spaced marker matched");
+Check(alerts.Match("Sam: Selling STEEL-ORE", now).Count == 1, "item matching ignores case and punctuation");
+Check(alerts.Match("Sam: Selling Steel Oresmith", now).Count == 0, "item word boundaries prevent substring alerts");
+Check(alerts.Match("Tara: WTS Glove att 10m", now).Single().Item == "Gloves Attack Scroll", "item aliases use primary display name");
+Check(alerts.Match("Mixed: WTB Steel Ore / WTS Potions", now).Count == 0, "mixed clauses do not reverse item intent");
+Check(alerts.Match("Mixed: WTS Steel Ore WTB Potions", now).Count == 2, "mixed markers associate each item with its own intent");
+Check(alerts.Match("Linked: B> Potions [Steel Ore] S> 120", now).Count == 2, "linked item immediately before next marker uses next intent");
+Check(alerts.Match("Alice: S> Steel Ore new price", now.AddSeconds(10)).Count == 0, "repeat player and item muted during cooldown");
+Check(alerts.Match("DifferentPlayer: S> Steel Ore", now.AddSeconds(10)).Count == 1, "other players are not muted by cooldown");
+Check(alerts.Match("Alice: S> Steel Ore", now.AddSeconds(61)).Count == 1, "alert repeats after cooldown");
+watchSettings.AlertsEnabled = false;
+Check(alerts.Match("NewPlayer: S> Steel Ore", now).Count == 0, "global alert disable respected");
+watchSettings.AlertsEnabled = true;
+watchSettings.BuyingItems = ["[buy]", ".*", ""];
+Check(alerts.Match("Player: S> everything", now).Count == 0, "watch items cannot inject regex wildcards");
 Console.WriteLine($"\n{passed} checks passed.");

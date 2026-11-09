@@ -10,6 +10,8 @@ public sealed class TrackerController
     public TrackerSettings Settings { get; }
     public ExperienceTable Table { get; }
     public ObservableCollection<FeedEntry> Entries { get; } = [];
+    public ObservableCollection<TradeAlert> Alerts { get; } = [];
+    public event Action<TradeAlert>? AlertRaised;
     public Dictionary<string, long> Items { get; } = new(StringComparer.OrdinalIgnoreCase);
     public GameWindow? Target { get; set; }
     public string Status { get; private set; } = "Choose your game window in Setup to begin.";
@@ -22,6 +24,7 @@ public sealed class TrackerController
     private readonly LineTracker chatLines = new();
     private readonly LineTracker lootLines = new();
     private readonly SessionTracker session;
+    private readonly TradeAlertMatcher alertMatcher;
     private OcrReader? ocr;
     private bool busy;
     private int generation;
@@ -38,6 +41,7 @@ public sealed class TrackerController
         Settings = settings;
         Table = ExperienceTable.Load(Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
         session = new(Table);
+        alertMatcher = new(settings);
         timer.Tick += async (_, _) => await Tick();
         timer.Start();
     }
@@ -58,7 +62,7 @@ public sealed class TrackerController
     {
         generation++; Running = false; Demo = false; active.Reset(); session.Reset();
         chatLines.Reset(); lootLines.Reset(); pendingHud = null; hasHud = false;
-        Entries.Clear(); Items.Clear(); journal?.Dispose(); journal = null; journalWarning = null;
+        Entries.Clear(); Items.Clear(); Alerts.Clear(); alertMatcher.Reset(); journal?.Dispose(); journal = null; journalWarning = null;
         Status = "New session · ready"; DiagnosticsText = "No frames read yet."; Changed?.Invoke();
     }
     public void StartDemo()
@@ -138,7 +142,17 @@ public sealed class TrackerController
         if (session.Observe(reading, active.Elapsed)) { lastConfirmedAbsolute = absolute; hasHud = true; }
     }
 
-    private void AddChat(string text) => AddEntry(new(DateTimeOffset.Now, text, new TradeClassifier(Settings).Classify(text)));
+    internal void AddChat(string text)
+    {
+        var now = DateTimeOffset.Now;
+        AddEntry(new(now, text, new TradeClassifier(Settings).Classify(text)));
+        foreach (var alert in alertMatcher.Match(text, now))
+        {
+            Alerts.Insert(0, alert);
+            if (Alerts.Count > 200) Alerts.RemoveAt(Alerts.Count - 1);
+            AlertRaised?.Invoke(alert);
+        }
+    }
     private void AddLoot(string text)
     {
         if (TextParsing.Mesos(text) is long amount) session.AddMesos(amount);

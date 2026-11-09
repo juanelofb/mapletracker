@@ -1,0 +1,27 @@
+<Window x:Class="MapleTracker.App.AlertsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{StaticResource TrackerWindow}" Title="MapleTracker · Item alerts" Width="800" Height="660" MinWidth="660" MinHeight="560" WindowStartupLocation="CenterOwner">
+  <Grid Margin="22">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,18">
+      <TextBlock Text="Find the other side of your trade" FontSize="23" FontWeight="SemiBold"/>
+      <CheckBox x:Name="EnabledCheck" Content="Show popup alerts for matching chat messages" Margin="0,14,0,0"/>
+    </StackPanel>
+    <TabControl Grid.Row="1">
+      <TabItem Header="My lists">
+        <Grid Margin="12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <StackPanel Margin="0,0,0,12"><TextBlock Text="I WANT TO BUY" Foreground="#75C6E2" FontWeight="SemiBold"/><TextBlock Text="Alert when someone is selling these items." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,5,0,0"/></StackPanel>
+          <StackPanel Grid.Column="2" Margin="0,0,0,12"><TextBlock Text="I WANT TO SELL" Foreground="#E1BC70" FontWeight="SemiBold"/><TextBlock Text="Alert when someone wants to buy these items." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,5,0,0"/></StackPanel>
+          <TextBox x:Name="BuyingList" Grid.Row="1" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Items I want to buy"/>
+          <TextBox x:Name="SellingList" Grid.Row="1" Grid.Column="2" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Items I want to sell"/>
+          <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="One item per line. Add aliases with |, for example: Gloves Attack Scroll | Glove att&#10;Matches ignore case and punctuation. Repeat alerts from the same player and item are muted for 60 seconds." Foreground="{StaticResource Muted}" FontSize="11" LineHeight="19" Margin="0,12,0,0"/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Alert history"><ListBox x:Name="HistoryList">
+        <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="3,4"><TextBlock Text="{Binding Summary}" FontWeight="SemiBold" Foreground="#E1BC70"/><TextBlock Text="{Binding Message}" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/><TextBlock Text="{Binding Time, StringFormat={}{0:HH:mm:ss}}" Foreground="#7589A0" FontSize="11" Margin="0,5,0,0"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+      </ListBox></TabItem>
+    </TabControl>
+    <Grid Grid.Row="2" Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="SaveStatus" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,10,0" VerticalAlignment="Center" Text="Popups appear over the tracker without taking game focus."/>
+      <Button x:Name="TestButton" Grid.Column="1" Content="Test popup" Click="TestClick"/><Button Grid.Column="2" Content="Cancel" IsCancel="True"/><Button x:Name="SaveButton" Grid.Column="3" Content="Save lists" Background="#DF755E" Foreground="#111722" Click="SaveClick" Margin="0"/>
+    </Grid>
+  </Grid>
+</Window>

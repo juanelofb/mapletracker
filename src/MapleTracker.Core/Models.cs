@@ -22,6 +22,9 @@ public sealed class TrackerSettings
     public CaptureRegion Experience { get; set; } = new(.528, .958, .085, .019);
     public string[] BuyingTerms { get; set; } = ["Buying", "Buy", "B>", "WTB"];
     public string[] SellingTerms { get; set; } = ["Selling", "Sell", "S>", "WTS"];
+    public string[] BuyingItems { get; set; } = [];
+    public string[] SellingItems { get; set; } = [];
+    public bool AlertsEnabled { get; set; } = true;
     public int PollMilliseconds { get; set; } = 500;
     public bool AlwaysOnTop { get; set; } = true;
     public double Opacity { get; set; } = 1;
@@ -39,14 +42,7 @@ public sealed class TradeClassifier(TrackerSettings settings)
 {
     public MessageKind Classify(string text)
     {
-        var colon = text.IndexOf(':');
-        var body = colon >= 0 ? text[(colon + 1)..] : text;
-        var kind = MessageKind.Chat;
-        if (Matches(body, settings.BuyingTerms)) kind |= MessageKind.Buying;
-        if (Matches(body, settings.SellingTerms)) kind |= MessageKind.Selling;
-        return kind;
+        var message = TradeMessage.Parse(text);
+        return TradeMessage.Markers(message.Body, settings).Aggregate(MessageKind.Chat, (kind, marker) => kind | marker.Kind);
     }
-    private static bool Matches(string body, IEnumerable<string> terms) => terms
-        .Where(t => !string.IsNullOrWhiteSpace(t))
-        .Any(t => Regex.IsMatch(body, @"(?<!\w)" + Regex.Escape(t.Trim()) + (char.IsLetterOrDigit(t.Trim()[^1]) ? @"(?!\w)" : ""), RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)));
 }

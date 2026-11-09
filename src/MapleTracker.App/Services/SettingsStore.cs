@@ -18,6 +18,8 @@ public sealed class SettingsStore
                 value.BuyingTerms == null || value.SellingTerms == null) throw new JsonException("Invalid regions or keywords.");
             value.PollMilliseconds = Math.Clamp(value.PollMilliseconds, 250, 5000);
             value.Opacity = double.IsFinite(value.Opacity) ? Math.Clamp(value.Opacity, .4, 1) : 1;
+            value.BuyingItems ??= [];
+            value.SellingItems ??= [];
             return value;
         }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)

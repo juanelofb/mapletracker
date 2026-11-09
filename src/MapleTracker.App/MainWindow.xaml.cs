@@ -11,6 +11,7 @@ public partial class MainWindow : Window
     private readonly SettingsStore store;
     private readonly List<ListCollectionView> views = [];
     private StatsWindow? stats;
+    private TradeAlertWindow? tradePopup;
     private bool shuttingDown;
     private bool allowClose;
     private long itemCount = -1;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
         AddView(SellingList, e => e.Kind.HasFlag(MessageKind.Selling));
         AddView(ItemsList, e => e.Kind == MessageKind.Item);
         controller.Changed += Refresh;
+        controller.AlertRaised += ShowAlert;
         controller.Entries.CollectionChanged += (_, _) =>
         {
             if (FollowCheck.IsChecked == true) Dispatcher.BeginInvoke(() =>
@@ -51,6 +53,7 @@ public partial class MainWindow : Window
             LootHeading.Text = $"{count:N0} items picked up · {controller.Items.Count:N0} types";
         }
         stats?.Refresh();
+        AlertsButton.Content = controller.Alerts.Count > 0 ? $"Item alerts ({controller.Alerts.Count})" : "Item alerts";
     }
     private void SearchChanged(object sender, TextChangedEventArgs e) { foreach (var view in views) view.Refresh(); }
     private void StartClick(object sender, RoutedEventArgs e) { if (controller.Target == null) { SetupClick(sender, e); return; } controller.Start(); }
@@ -67,6 +70,27 @@ public partial class MainWindow : Window
         }
     }
     private void StatsClick(object sender, RoutedEventArgs e) => ShowStats();
+    private void AlertsClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new AlertsWindow(controller) { Owner = this };
+        dialog.PreviewRequested += ShowAlert;
+        if (dialog.ShowDialog() == true)
+        {
+            Save();
+            if (!controller.Settings.AlertsEnabled) tradePopup?.Close();
+        }
+        dialog.PreviewRequested -= ShowAlert;
+    }
+    private void ShowAlert(TradeAlert alert)
+    {
+        if (shuttingDown) return;
+        if (tradePopup == null)
+        {
+            tradePopup = new TradeAlertWindow { Owner = this };
+            tradePopup.Closed += (_, _) => tradePopup = null;
+        }
+        tradePopup.Present(alert, this);
+    }
     private void ShowStats()
     {
         if (stats == null || !stats.IsLoaded) { stats = new StatsWindow(controller); stats.Closed += (_, _) => stats = null; stats.Show(); }
@@ -91,6 +115,8 @@ public partial class MainWindow : Window
         e.Cancel = true; if (shuttingDown) return; shuttingDown = true;
         var s = controller.Settings;
         if (WindowState == WindowState.Normal) { s.ChatLeft = Left; s.ChatTop = Top; s.ChatWidth = Width; s.ChatHeight = Height; }
-        stats?.RememberBounds(); Save(); await controller.Shutdown(); stats?.Close(); allowClose = true; Close();
+        stats?.RememberBounds(); Save(); await controller.Shutdown(); tradePopup?.Close(); stats?.Close(); allowClose = true;
+        // Shutdown can complete synchronously. Let this Closing event return before closing again.
+        _ = Dispatcher.BeginInvoke(new Action(Close));
     }
 }

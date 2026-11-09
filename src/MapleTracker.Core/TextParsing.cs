@@ -11,13 +11,14 @@ public static class TextParsing
 
     public static HudReading? Hud(string levelText, string expText, ExperienceTable table)
     {
-        var levelMatch = Match(levelText, @"(?:LV\.?\s*)?(?<level>\d{1,3})(?!\d)");
-        var expMatch = Match(expText, @"(?:EXP\s*[:.]?\s*)?(?<exp>\d{1,3}(?:[.,]\d{3})+|\d+)(?:\s*[\[(]?\s*(?<percent>\d{1,3}\.\d+)\s*%\s*[\])]?)?");
+        var levelMatch = Match(levelText, @"^\s*(?:LV\.?\s*)?(?<level>\d{1,3})\s*$");
+        // Require a complete value + percent. Never accept a digit buried in garbled OCR.
+        var expMatch = Match(expText, @"^\s*(?:(?:EXP|XP)\s*[:.]?\s*)?(?<exp>\d{1,3}(?:[.,]\d{3})+|\d+)(?:\s*[\[(]\s*|\s+)(?<percent>\d{1,3}\.\d{1,2})\s*%\s*[\])]?\s*[.;]?\s*$");
         if (!int.TryParse(levelMatch.Groups["level"].Value, out var level) || level is < 1 or > 100 || !expMatch.Success) return null;
         var exp = Number(expMatch.Groups["exp"].Value.Replace(".", ""));
         if (exp == null || table.Required(level) is long max && exp >= max) return null;
         if (expMatch.Groups["percent"].Success && table.Required(level) is long required &&
-            double.TryParse(expMatch.Groups["percent"].Value, CultureInfo.InvariantCulture, out var percent) && Math.Abs(100.0 * exp.Value / required - percent) > .3) return null;
+            double.TryParse(expMatch.Groups["percent"].Value, CultureInfo.InvariantCulture, out var percent) && Math.Abs(100.0 * exp.Value / required - percent) > .03) return null;
         return new(level, exp.Value);
     }
 

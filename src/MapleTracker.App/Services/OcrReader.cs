@@ -29,17 +29,37 @@ public sealed class OcrReader : IDisposable
         var chat = Region(frame, settings.Chat, "chat", false, diagnostics);
         var loot = Region(frame, settings.Loot, "loot", true, diagnostics);
         var level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true));
-        var exp = string.Join(" ", Region(frame, settings.Experience, "exp", false, diagnostics, true));
-        var result = new RecognitionFrame(chat, loot, level, exp, TextParsing.Hud(level, exp, table));
+        if (!int.TryParse(level, out var numericLevel) || numericLevel is < 1 or > 100)
+            level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true, 100, PageSegMode.SingleLine));
+        var exp = "";
+        HudReading? hud = null;
+        var attempts = new List<object>();
+        foreach (var (threshold, mode) in new[]
+        {
+            (100, PageSegMode.SingleLine), (0, PageSegMode.SingleLine),
+            (150, PageSegMode.SingleWord), (150, PageSegMode.SingleLine)
+        })
+        {
+            exp = string.Join(" ", Region(frame, settings.Experience, "exp", false, diagnostics, true, threshold, mode));
+            hud = TextParsing.Hud(level, exp, table);
+            attempts.Add(new { threshold, Mode = mode.ToString(), Text = exp, Validated = hud != null });
+            if (hud != null) break;
+        }
+        var result = new RecognitionFrame(chat, loot, level, exp, hud);
         if (diagnostics != null)
+        {
             File.WriteAllText(Path.Combine(diagnostics, "recognition.json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(Path.Combine(diagnostics, "hud-attempts.json"), JsonSerializer.Serialize(attempts, new JsonSerializerOptions { WriteIndented = true }));
+        }
         return result;
     }
 
-    private string[] Region(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics, bool singleLine = false)
+    private string[] Region(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics,
+        bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null)
     {
         using var crop = WindowCapture.Crop(frame, region);
-        using var prepared = Prepare(crop, whiteText || singleLine, name == "level" ? 150 : name == "exp" ? 150 : 45);
+        var threshold = thresholdOverride ?? (singleLine ? 150 : 45);
+        using var prepared = Prepare(crop, (whiteText || singleLine) && threshold > 0, threshold);
         if (diagnostics != null)
         {
             Directory.CreateDirectory(diagnostics);
@@ -50,7 +70,7 @@ public sealed class OcrReader : IDisposable
         prepared.Save(memory, ImageFormat.Png);
         using var pix = Pix.LoadFromMemory(memory.ToArray());
         engine.SetVariable("tessedit_char_whitelist", name == "level" ? "0123456789" : "");
-        using var page = engine.Process(pix, singleLine ? PageSegMode.SingleWord : name == "loot" ? PageSegMode.SparseText : PageSegMode.Auto);
+        using var page = engine.Process(pix, segmentation ?? (singleLine ? PageSegMode.SingleWord : name == "loot" ? PageSegMode.SparseText : PageSegMode.Auto));
         var lines = new List<(int Y, int X, string Text)>();
         using var iter = page.GetIterator();
         iter.Begin();
