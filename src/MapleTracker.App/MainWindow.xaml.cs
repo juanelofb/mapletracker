@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private void Refresh()
     {
         StatusText.Text = controller.Status; StartButton.IsEnabled = !controller.Running; PauseButton.IsEnabled = controller.Running;
+        TypingNotice.Visibility = controller.Settings.ChatHistoryOnly ? Visibility.Collapsed : Visibility.Visible;
         EmptyState.Visibility = controller.Entries.Any(e => e.Kind != MessageKind.Item) ? Visibility.Collapsed : Visibility.Visible;
         var count = controller.Items.Values.Sum();
         if (itemCount != count)

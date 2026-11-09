@@ -16,7 +16,7 @@ The English Tesseract model is included. The script can download it again if mis
 1. Run the game in windowed or borderless mode.
 2. Open **Setup**, choose the game window, and **Take snapshot**. Tracker windows briefly become transparent while the game is captured; the setup dialog stays open until you save or cancel.
 3. Choose each colored region and drag a tight box around **chat messages**, **loot notifications**, **level number**, and **EXP number plus percentage**. Include text, not just the colored EXP bar. Defaults match the original 1908×1080 reference image.
-   For the expanded chat layout, select only received messages above the typing field and enable **Chat history only**. Keep a few pixels of padding; exclude scenery and the input field. Leave this option off for the compact shared input/message bar.
+   Use the compact white chat bar with **Chat history only** off. **Use white chat bar** selects its default region; collapse in-game chat to one bar and adjust the box if needed. Typing in-game can hide messages and cause missed or incorrect captures; the chat window shows this reminder. Expanded history capture remains optional: select only received messages above the typing field and enable **Chat history only**.
 4. Use **Test recognition** to review the text. Fix the regions if needed, then **Save setup**.
 5. Move both tracker windows away from the capture regions. Press **Start capture** and focus the game.
 

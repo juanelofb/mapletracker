@@ -10,6 +10,7 @@ public sealed partial class OcrReader
     internal string[] ReadChat(Bitmap frame, TrackerSettings settings, string? diagnostics)
     {
         using var crop = WindowCapture.Crop(frame, settings.Chat);
+        if (!settings.ChatHistoryOnly) return RecognizeChatPart(crop, settings, diagnostics, "chat-white-bar", compact: true);
         var badges = settings.IgnoreChannelBadges ? ChannelBadges.Find(crop) : [];
         if (badges.Length < 2)
             return ReadChatRow(crop, badges.FirstOrDefault(), badges.Length > 0, settings, diagnostics, "chat");
@@ -55,17 +56,19 @@ public sealed partial class OcrReader
         return RecognizeChatPart(crop, settings, diagnostics, name);
     }
 
-    private string[] RecognizeChatPart(Bitmap crop, TrackerSettings settings, string? diagnostics, string name)
+    private string[] RecognizeChatPart(Bitmap crop, TrackerSettings settings, string? diagnostics, string name, bool compact = false)
     {
         var mode = crop.Height <= 40 ? PageSegMode.SingleLine : PageSegMode.SingleBlock;
         int passes = settings.RecognitionQuality switch { RecognitionQuality.Low => 1, RecognitionQuality.High => 4, _ => 2 };
-        bool banner = BannerBackground(crop) != null;
+        bool banner = !compact && BannerBackground(crop) != null;
         var candidates = new List<NotificationLine[]>();
         for (int i = 0; i < passes; i++)
         {
             // Try distinct views; all use one shared OCR engine and sequential image buffers.
             bool gray = i == 1;
             int threshold = i == 2 ? 150 : i == 3 ? 0 : banner || gray ? 0 : 100;
+            if (compact && i == 0) threshold = 0;
+            if (compact && i == 3) threshold = 100;
             var lines = ReadRegion(crop, new CaptureRegion(0, 0, 1, 1), name + "-pass" + i, i == 2 || !banner, diagnostics,
                 mode == PageSegMode.SingleLine, threshold, mode, gray, banner && i == 0, settings.IgnoreChannelBadges);
             chatPasses++;

@@ -45,6 +45,14 @@ public partial class SetupWindow : Window
             ?? windows.FirstOrDefault(w => w.Title == draft.WindowTitle);
     }
     private void RefreshClick(object sender, RoutedEventArgs e) => RefreshWindows();
+    private void WhiteBarClick(object sender, RoutedEventArgs e)
+    {
+        draft.Chat = new TrackerSettings().Chat;
+        HistoryOnly.IsChecked = false;
+        ChatRadio.IsChecked = true;
+        DrawRegions(); UpdateRegionInfo();
+        SetupStatus.Text = "White bar selected. Collapse in-game chat to one bar; adjust the box if your layout differs.";
+    }
     private void QualityChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (QualityDescription == null) return;

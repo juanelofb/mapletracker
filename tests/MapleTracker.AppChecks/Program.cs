@@ -226,6 +226,8 @@ internal static class Program
             using var image = new Bitmap(path);
             var frame = reader.Read(image, new TrackerSettings());
             Check(frame.Hud == new HudReading(27, expected), $"screenshot OCR validates level 27 and EXP {expected:N0}");
+            if (expected == 50548)
+                Check(frame.Chat.Any(line => line.Contains("dagger", StringComparison.OrdinalIgnoreCase)), "compact white-bar OCR reads the original received chat message: " + string.Join(" / ", frame.Chat));
             if (expected == 55187)
                 Check(frame.LootLines.Any(line => TextParsing.Mesos(line.Text) == 47), "contrast fallback recovers the visible +47 meso notification");
         }

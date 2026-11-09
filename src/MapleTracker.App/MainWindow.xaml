@@ -38,7 +38,7 @@
           <ListBox Grid.Row="2" x:Name="ItemsList" ItemTemplate="{StaticResource MessageRow}"/>
         </Grid></TabItem>
       </TabControl>
-      <StackPanel Grid.Row="3" Margin="0,14,0,0"><TextBlock x:Name="StatusText" Foreground="{StaticResource Muted}" FontSize="11"/><local:TransparencyControl x:Name="Transparency"/></StackPanel>
+      <StackPanel Grid.Row="3" Margin="0,14,0,0"><TextBlock x:Name="StatusText" Foreground="{StaticResource Muted}" FontSize="11"/><TextBlock x:Name="TypingNotice" Text="Typing in-game can hide chat messages and cause missed or incorrect captures." Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,5,0,0"/><local:TransparencyControl x:Name="Transparency"/></StackPanel>
     </Grid>
   </DockPanel>
 </Window>
