@@ -21,7 +21,9 @@ The English Tesseract model is included. The script can download it again if mis
 
 The app uses visible screen capture relative to the game client rectangle. Coordinates follow window movement and scale with resizing. Game UI layout changes still require recalibration. Capture and the active-session clock pause while the game is not the foreground window, is minimized, or another visible window overlaps a configured text region. This version does not capture a minimized or occluded game. Exclusive fullscreen is not supported.
 
-**Demo** starts a clearly labeled simulated session, with no game required. It resets the current in-memory session. **New session** clears the current view and counters; previously written logs remain. **Pause** preserves the session. Closing the chat window exits both windows. Statistics can be closed and reopened. Opacity and always-on-top are configurable; positions and sizes are saved.
+**Start capture / Pause** control OCR capture. The statistics window has independent **Start / Stop / Reset** controls: Stop freezes EXP, meso and the session clock while chat, loot and market alerts keep running; Start resumes from your current EXP and excludes EXP earned during the stopped interval. Reset clears only statistics and preserves their current running/stopped state. It leaves chat, item totals and alert history intact. Closing chat exits all tracker windows, including popups. Statistics can be closed and reopened.
+
+The dark windows use joined tabs and a custom title bar. Drag the title bar to move them; drag the bottom-right grip to resize. The **Transparency** slider at the bottom of either window changes both window backgrounds while text remains fully opaque. Values run from 0% (opaque) to 60% transparent. Preferences, positions and sizes are saved. Demo has been removed.
 
 ## Item alerts
 
@@ -31,7 +33,8 @@ Open **Item alerts** in the chat window. Put one item per line in **I want to bu
 - Your selling list finds buyers: `Bob: B> Potions` produces **Bob wants to buy Potions**.
 - Names match case-insensitively with punctuation and word boundaries. Use `|` for explicit aliases, for example `Gloves Attack Scroll | Glove att`. The first alias is the popup's display name. Matching does not guess misspelled OCR text; add aliases for abbreviations you see in chat.
 - Item links before a marker and spaced markers such as `S >` are supported. Separate buying/selling clauses are matched by direction.
-- Popups appear over the tracker for 12 seconds without taking game focus. A newer match updates the popup; every match stays in **Alert history**, up to 200 entries per session. History clears with **New session** or app restart.
+- Popups appear at the bottom-right of the monitor containing chat, inside its visible work area, without taking game focus. They are independent topmost windows, so minimizing chat does not hide them. A popup stays until dismissed; additional matches queue instead of replacing it. Dismiss the visible popup to see the next one.
+- The **Popups** switch on chat, also available in Item alerts, disables visible popups and clears the popup queue. Match detection and **Alert history** continue while popups are off. History retains up to 200 entries and clears on app restart or a capture-source reset.
 - The same recognized player, item and direction trigger at most once every 60 seconds. Other players still trigger independently.
 - **Test popup** previews a notification using your draft list. The enable toggle and both lists are saved in settings.
 
@@ -72,7 +75,7 @@ Settings and session data live beside the executable in `data/`. Use a writable 
 - `src/MapleTracker.Core` — trade matching, OCR text parsers, ordered line tracking, EXP table and session math.
 - `src/MapleTracker.App` — WPF UI, Win32 screen capture, local Tesseract OCR, settings and logs.
 - `tests/MapleTracker.Checks` — deterministic checks of rollover, losses, ETA, duplicate handling, parsers, categories and table totals.
-- `tests/MapleTracker.AppChecks` — WPF regression checks of snapshot → Save, repeated snapshots, cancellation, capture failure, persisted setup and watchlists, notification delivery, and popup focus. These use a synthetic capture source and briefly open test windows. Optional `MAPLETRACKER_ORIGINAL_SCREENSHOT`, `MAPLETRACKER_LATEST_SCREENSHOT`, and `MAPLETRACKER_FADING_SCREENSHOT` environment variables run OCR checks against local game-client image fixtures; user screenshots are never committed.
+- `tests/MapleTracker.AppChecks` — WPF regression checks of setup, saved watchlists, background popup delivery with chat minimized, popup queueing and dismissal, monitor bounds, focus preservation, independent statistics controls, and transparency. These use a synthetic capture source and briefly open test windows. Optional `MAPLETRACKER_ORIGINAL_SCREENSHOT`, `MAPLETRACKER_LATEST_SCREENSHOT`, and `MAPLETRACKER_FADING_SCREENSHOT` environment variables run OCR checks against local game-client image fixtures; user screenshots are never committed.
 
 ```powershell
 dotnet run --project tests/MapleTracker.Checks

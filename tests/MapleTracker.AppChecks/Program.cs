@@ -30,6 +30,9 @@ internal static class Program
             CheckAlertEditor(save: false);
             CheckAlertDelivery();
             CheckMainWindowClosing();
+            CheckStatisticsControls();
+            CheckNotificationQueue();
+            CheckModernShell();
             CheckScreenshotOcr();
             Console.WriteLine($"\n{passed} WPF regression checks passed.");
             return 0;
@@ -215,5 +218,101 @@ internal static class Program
         window.Close();
         System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         Check(closed, "closing an idle chat window completes without reentrant Close");
+    }
+
+    private static void CheckStatisticsControls()
+    {
+        var controller = new TrackerController(new TrackerSettings { BuyingItems = ["Steel Ore"] });
+        try
+        {
+            controller.AcceptHud(new(27, 50000)); controller.AcceptHud(new(27, 50000));
+            controller.AcceptHud(new(27, 51000)); controller.AddLoot("You received 100 mesos.");
+            Check(controller.Snapshot.GainedExperience == 1000 && controller.Snapshot.Mesos == 100, "statistics accumulate before Stop");
+            controller.StopStatistics();
+            controller.AcceptHud(new(27, 55000)); controller.AddLoot("You received 500 mesos.");
+            controller.AddChat("Player: S> Steel Ore");
+            Check(controller.Snapshot.GainedExperience == 1000 && controller.Snapshot.Mesos == 100, "Stop freezes EXP and meso totals");
+            Check(controller.Alerts.Count == 1, "trade alerts continue while statistics are stopped");
+            controller.StartStatistics();
+            controller.AcceptHud(new(27, 55000)); controller.AcceptHud(new(27, 55000));
+            Check(controller.Snapshot.GainedExperience == 1000, "Start rebases EXP after the stopped interval");
+            controller.AcceptHud(new(27, 55500)); controller.AddLoot("You received 50 mesos.");
+            Check(controller.Snapshot.GainedExperience == 1500 && controller.Snapshot.Mesos == 150, "Start resumes both counters");
+            controller.AddLoot("You received 999 mesos.", countStatistics: false);
+            Check(controller.Snapshot.Mesos == 150, "obsolete in-flight frame cannot add mesos after a control change");
+            controller.ResetStatistics();
+            Check(controller.Snapshot.GainedExperience == 0 && controller.Snapshot.Mesos == 0 && controller.Snapshot.ActiveTime == TimeSpan.Zero, "Reset clears statistics and elapsed time");
+            Check(controller.Alerts.Count == 1 && controller.Entries.Count > 0 && controller.StatisticsRunning, "statistics Reset preserves chat, alerts and running state");
+            controller.StopStatistics(); controller.ResetStatistics();
+            Check(!controller.StatisticsRunning, "Reset does not start a stopped statistics tracker");
+            controller.SetPopupsEnabled(false);
+            int raised = 0; controller.AlertRaised += _ => raised++;
+            controller.AddChat("AnotherPlayer: S> Steel Ore");
+            Check(raised == 0 && controller.Alerts.Count == 2, "popup switch suppresses popups but preserves history");
+        }
+        finally { controller.Shutdown().GetAwaiter().GetResult(); }
+    }
+
+    private static void CheckNotificationQueue()
+    {
+        var anchor = new Window { Title = "Notification anchor test", Width = 300, Height = 150 };
+        var foreground = new Window { Title = "Foreground game substitute", Width = 350, Height = 180, Topmost = true };
+        anchor.Show(); anchor.WindowState = WindowState.Minimized;
+        foreground.Show(); foreground.Activate();
+        var before = WindowCapture.GetForegroundWindow();
+        using var presenter = new TradeNotificationPresenter(anchor);
+        try
+        {
+            presenter.Show(new(DateTimeOffset.Now, "Alice", "Steel Ore", MessageKind.Selling, "Alice: S> Steel Ore"));
+            var first = presenter.Current!;
+            Check(first.IsVisible && first.Owner == null, "popup remains independent of a minimized chat window");
+            Check(WindowCapture.GetForegroundWindow() == before, "background notification preserves game focus");
+            var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(anchor).Handle).WorkingArea;
+            TradeAlertWindow.GetWindowRect(new WindowInteropHelper(first).Handle, out var rectangle);
+            Check(rectangle.Left >= screen.Left && rectangle.Top >= screen.Top && rectangle.Right <= screen.Right && rectangle.Bottom <= screen.Bottom,
+                "popup is positioned inside the visible monitor work area");
+            presenter.Show(new(DateTimeOffset.Now, "Bob", "Potions", MessageKind.Buying, "Bob: B> Potions"));
+            Check(ReferenceEquals(first, presenter.Current) && presenter.PendingCount == 1, "second match queues without replacing the visible popup");
+            first.Close();
+            Check(presenter.Current != null && ((TextBlock)presenter.Current.FindName("SummaryText")).Text == "Bob wants to buy Potions",
+                "dismissing a match presents the next queued alert");
+            presenter.Clear();
+            Check(presenter.Current == null && presenter.PendingCount == 0, "turning off popups clears displayed and queued notifications");
+        }
+        finally { presenter.Clear(); foreground.Close(); anchor.Close(); }
+    }
+
+    private static void CheckModernShell()
+    {
+        var controller = new TrackerController(new TrackerSettings());
+        var window = new MainWindow(controller, new SettingsStore());
+        window.Show();
+        try
+        {
+            Check(window.AllowsTransparency && window.WindowStyle == WindowStyle.None, "modern shell supports a translucent custom frame");
+            var transparency = (TransparencyControl)window.FindName("Transparency");
+            ((Slider)transparency.FindName("TransparencySlider")).Value = 35;
+            Check(Math.Abs(controller.Settings.Opacity - .65) < .001 && window.Opacity == 1,
+                "bottom slider changes surface transparency without fading text");
+            Check(((System.Windows.Media.SolidColorBrush)window.Background).Color.A is >= 164 and <= 166, "surface brush applies the requested alpha");
+            var popupSwitch = (CheckBox)window.FindName("PopupToggle");
+            popupSwitch.IsChecked = false;
+            popupSwitch.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(!controller.Settings.AlertsEnabled, "chat popup switch updates the saved preference");
+            var stats = new StatsWindow(controller);
+            stats.Show();
+            ((Button)stats.FindName("StatsStopButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(!controller.StatisticsRunning, "statistics Stop button is wired");
+            ((Button)stats.FindName("StatsStartButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(controller.StatisticsRunning, "statistics Start button is wired");
+            ((Button)stats.FindName("StatsResetButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(controller.Snapshot.Mesos == 0, "statistics Reset button is wired");
+            stats.Close();
+        }
+        finally
+        {
+            window.Close();
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
     }
 }

@@ -58,7 +58,6 @@ public sealed class TradeAlertMatcher(TrackerSettings settings)
 
     public IReadOnlyList<TradeAlert> Match(string text, DateTimeOffset now)
     {
-        if (!settings.AlertsEnabled) return [];
         var message = TradeMessage.Parse(text);
         var results = new List<TradeAlert>();
         foreach (var (items, intent) in new[] { (settings.SellingItems, MessageKind.Buying), (settings.BuyingItems, MessageKind.Selling) })

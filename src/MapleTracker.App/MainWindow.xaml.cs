@@ -11,22 +11,25 @@ public partial class MainWindow : Window
     private readonly SettingsStore store;
     private readonly List<ListCollectionView> views = [];
     private StatsWindow? stats;
-    private TradeAlertWindow? tradePopup;
+    private readonly TradeNotificationPresenter notifications;
     private bool shuttingDown;
     private bool allowClose;
     private long itemCount = -1;
     public MainWindow(TrackerController controller, SettingsStore store)
     {
         this.controller = controller; this.store = store; InitializeComponent();
+        notifications = new(this);
         var s = controller.Settings;
         WindowAppearance.Restore(this, s.ChatLeft, s.ChatTop, s.ChatWidth, s.ChatHeight);
-        Topmost = s.AlwaysOnTop; TopCheck.IsChecked = Topmost; Opacity = s.Opacity;
+        Topmost = s.AlwaysOnTop; TopCheck.IsChecked = Topmost; PopupToggle.IsChecked = s.AlertsEnabled;
+        ApplyAppearance(); Transparency.Initialize(controller, Save);
         AddView(AllList, e => e.Kind != MessageKind.Item);
         AddView(BuyingList, e => e.Kind.HasFlag(MessageKind.Buying));
         AddView(SellingList, e => e.Kind.HasFlag(MessageKind.Selling));
         AddView(ItemsList, e => e.Kind == MessageKind.Item);
         controller.Changed += Refresh;
         controller.AlertRaised += ShowAlert;
+        controller.AppearanceChanged += ApplyAppearance;
         controller.Entries.CollectionChanged += (_, _) =>
         {
             if (FollowCheck.IsChecked == true) Dispatcher.BeginInvoke(() =>
@@ -36,6 +39,7 @@ public partial class MainWindow : Window
         };
         Loaded += (_, _) => { WindowAppearance.DarkTitleBar(this); ShowStats(); };
         Closing += OnClosing; Refresh();
+        Closed += (_, _) => { controller.Changed -= Refresh; controller.AlertRaised -= ShowAlert; controller.AppearanceChanged -= ApplyAppearance; };
     }
     private void AddView(ListBox list, Predicate<FeedEntry> predicate)
     {
@@ -54,6 +58,13 @@ public partial class MainWindow : Window
         }
         stats?.Refresh();
         AlertsButton.Content = controller.Alerts.Count > 0 ? $"Item alerts ({controller.Alerts.Count})" : "Item alerts";
+        PopupToggle.IsChecked = controller.Settings.AlertsEnabled;
+        if (!controller.Settings.AlertsEnabled) notifications.Clear();
+    }
+    private void ApplyAppearance() => WindowAppearance.SetSurfaceOpacity(this, controller.Settings.Opacity);
+    private void PopupChanged(object sender, RoutedEventArgs e)
+    {
+        controller.SetPopupsEnabled(PopupToggle.IsChecked == true); Save();
     }
     private void SearchChanged(object sender, TextChangedEventArgs e) { foreach (var view in views) view.Refresh(); }
     private void StartClick(object sender, RoutedEventArgs e) { if (controller.Target == null) { SetupClick(sender, e); return; } controller.Start(); }
@@ -64,8 +75,9 @@ public partial class MainWindow : Window
         var dialog = new SetupWindow(controller) { Owner = this };
         if (dialog.ShowDialog() == true)
         {
-            Topmost = controller.Settings.AlwaysOnTop; TopCheck.IsChecked = Topmost; Opacity = controller.Settings.Opacity;
-            if (stats != null) { stats.Topmost = Topmost; stats.Opacity = Opacity; }
+            Topmost = controller.Settings.AlwaysOnTop; TopCheck.IsChecked = Topmost;
+            controller.SetOpacity(controller.Settings.Opacity);
+            if (stats != null) stats.Topmost = Topmost;
             Save();
         }
     }
@@ -77,27 +89,26 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true)
         {
             Save();
-            if (!controller.Settings.AlertsEnabled) tradePopup?.Close();
+            controller.SetPopupsEnabled(controller.Settings.AlertsEnabled);
         }
         dialog.PreviewRequested -= ShowAlert;
     }
     private void ShowAlert(TradeAlert alert)
     {
         if (shuttingDown) return;
-        if (tradePopup == null)
+        try { notifications.Show(alert); }
+        catch (Exception error)
         {
-            tradePopup = new TradeAlertWindow { Owner = this };
-            tradePopup.Closed += (_, _) => tradePopup = null;
+            StatusText.Text = "Popup could not be displayed · " + error.Message;
+            try { File.WriteAllText(Path.Combine(SettingsStore.DataDirectory, "notification-error.log"), error.ToString()); }
+            catch (Exception fileError) when (fileError is IOException or UnauthorizedAccessException) { }
         }
-        tradePopup.Present(alert, this);
     }
     private void ShowStats()
     {
-        if (stats == null || !stats.IsLoaded) { stats = new StatsWindow(controller); stats.Closed += (_, _) => stats = null; stats.Show(); }
+        if (stats == null || !stats.IsLoaded) { stats = new StatsWindow(controller, () => SetupClick(this, new RoutedEventArgs())); stats.Closed += (_, _) => stats = null; stats.Show(); }
         else { stats.Show(); stats.Activate(); }
     }
-    private void DemoClick(object sender, RoutedEventArgs e) { controller.StartDemo(); ShowStats(); }
-    private void ResetClick(object sender, RoutedEventArgs e) => controller.Reset();
     private void TopChanged(object sender, RoutedEventArgs e) { Topmost = TopCheck.IsChecked == true; controller.Settings.AlwaysOnTop = Topmost; if (stats != null) stats.Topmost = Topmost; Save(); }
     private void ExportClick(object sender, RoutedEventArgs e)
     {
@@ -115,7 +126,7 @@ public partial class MainWindow : Window
         e.Cancel = true; if (shuttingDown) return; shuttingDown = true;
         var s = controller.Settings;
         if (WindowState == WindowState.Normal) { s.ChatLeft = Left; s.ChatTop = Top; s.ChatWidth = Width; s.ChatHeight = Height; }
-        stats?.RememberBounds(); Save(); await controller.Shutdown(); tradePopup?.Close(); stats?.Close(); allowClose = true;
+        stats?.RememberBounds(); Save(); await controller.Shutdown(); notifications.Dispose(); stats?.Close(); allowClose = true;
         // Shutdown can complete synchronously. Let this Closing event return before closing again.
         _ = Dispatcher.BeginInvoke(new Action(Close));
     }

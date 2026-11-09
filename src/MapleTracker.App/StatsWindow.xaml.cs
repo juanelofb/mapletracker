@@ -5,16 +5,37 @@ namespace MapleTracker.App;
 public partial class StatsWindow : Window
 {
     private readonly TrackerController controller;
-    public StatsWindow(TrackerController controller)
+    private readonly Action? requestSetup;
+    public StatsWindow(TrackerController controller, Action? requestSetup = null)
     {
-        this.controller = controller; InitializeComponent(); var s = controller.Settings;
+        this.controller = controller; this.requestSetup = requestSetup; InitializeComponent(); var s = controller.Settings;
         WindowAppearance.Restore(this, s.StatsLeft, s.StatsTop, s.StatsWidth, s.StatsHeight);
-        Topmost = s.AlwaysOnTop; Opacity = s.Opacity; Loaded += (_, _) => WindowAppearance.DarkTitleBar(this); Closing += (_, _) => RememberBounds(); Refresh();
+        Topmost = s.AlwaysOnTop; ApplyAppearance();
+        Transparency.Initialize(controller, Save);
+        controller.AppearanceChanged += ApplyAppearance;
+        Closing += (_, _) => { RememberBounds(); Save(); };
+        Closed += (_, _) => controller.AppearanceChanged -= ApplyAppearance;
+        Refresh();
     }
+    private void ApplyAppearance() => WindowAppearance.SetSurfaceOpacity(this, controller.Settings.Opacity);
+    private void Save()
+    {
+        try { new SettingsStore().Save(controller.Settings); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { MessageBox.Show(this, error.Message, "Could not save preferences"); }
+    }
+    private void StartClick(object sender, RoutedEventArgs e)
+    {
+        if (controller.Target == null && requestSetup != null) { requestSetup(); return; }
+        controller.StartStatistics(); Refresh();
+    }
+    private void StopClick(object sender, RoutedEventArgs e) { controller.StopStatistics(); Refresh(); }
+    private void ResetClick(object sender, RoutedEventArgs e) { controller.ResetStatistics(); Refresh(); }
     public void RememberBounds() { if (WindowState != WindowState.Normal) return; var s = controller.Settings; s.StatsLeft = Left; s.StatsTop = Top; s.StatsWidth = Width; s.StatsHeight = Height; }
     public void Refresh()
     {
-        var s = controller.Snapshot; Mode.Text = controller.Demo ? "DEMO" : controller.Running ? "LIVE" : "PAUSED";
+        var s = controller.Snapshot; Mode.Text = !controller.StatisticsRunning ? "STOPPED" : controller.Running ? "RUNNING" : "CAPTURE PAUSED";
+        StatsStartButton.IsEnabled = !controller.StatisticsRunning || !controller.Running;
+        StatsStopButton.IsEnabled = controller.StatisticsRunning;
         if (s.Level != null)
         {
             LevelText.Text = s.Level == 100 ? "Level 100 · table complete" : $"Level {s.Level} → {s.Level + 1}";

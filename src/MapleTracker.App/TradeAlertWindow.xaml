@@ -4,7 +4,7 @@
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="ListText" Foreground="#D4B07B" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/><Button Grid.Column="1" Content="×" Focusable="False" Click="DismissClick" Padding="7,2" Margin="8,0,0,0" AutomationProperties.Name="Dismiss trade alert"/></Grid>
       <TextBlock Grid.Row="1" x:Name="SummaryText" FontSize="20" FontWeight="SemiBold" Margin="0,12,0,10"/>
       <TextBlock Grid.Row="2" x:Name="SourceText" Foreground="{StaticResource Muted}" FontSize="12" MaxHeight="90" TextTrimming="CharacterEllipsis"/>
-      <TextBlock Grid.Row="3" Text="View matches in Item alerts → Alert history" FontSize="10" Foreground="#7589A0" Margin="0,14,0,0"/>
+      <TextBlock x:Name="PendingText" Grid.Row="3" Text="Stays visible until you dismiss it" FontSize="11" Foreground="#9CABBF" Margin="0,14,0,0"/>
     </Grid>
   </Border>
 </Window>

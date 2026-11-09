@@ -11,6 +11,13 @@ public sealed class SessionTracker(ExperienceTable table)
     private HudReading? current;
     private readonly List<(TimeSpan Time, long Xp)> samples = [];
     public void Reset() { baseline = null; total = 0; mesos = 0; current = null; samples.Clear(); }
+    public void ResumeAt(HudReading reading)
+    {
+        // Keep earned EXP, but exclude progress made while statistics were stopped.
+        baseline = table.Absolute(reading.Level, reading.Experience) - total;
+        current = reading;
+        samples.Clear();
+    }
     public bool Observe(HudReading reading, TimeSpan activeTime)
     {
         if (current != null && Math.Abs(reading.Level - current.Level) > 1) return false;

@@ -1,21 +1,38 @@
-<Window x:Class="MapleTracker.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{StaticResource TrackerWindow}" Title="MapleTracker · Chat" Width="740" Height="650" MinWidth="610" MinHeight="440">
-  <Grid Margin="22"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <Grid Margin="0,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="◆" Foreground="{StaticResource Accent}" FontSize="25" Margin="0,0,10,0"/><TextBlock Text="MAPLETRACKER" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel><TextBlock Text="Your chat. A little more room to play." Foreground="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel>
-      <CheckBox x:Name="TopCheck" Grid.Column="1" Content="Keep on top" VerticalAlignment="Top" Margin="16,8,0,0" Click="TopChanged"/>
+<Window x:Class="MapleTracker.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:MapleTracker.App"
+        Style="{StaticResource OverlayWindow}" Title="MapleTracker · Chat" Width="740" Height="680" MinWidth="610" MinHeight="480">
+  <DockPanel>
+    <local:OverlayTitleBar DockPanel.Dock="Top"/>
+    <Grid Margin="22,8,22,20"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel><TextBlock Text="A little more room to play." FontSize="21" FontWeight="SemiBold"/><TextBlock Text="CHAT · MARKET · LOOT" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,7,0,0"/></StackPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center"><CheckBox x:Name="PopupToggle" Style="{StaticResource Switch}" Content="Popups" Click="PopupChanged"/><CheckBox x:Name="TopCheck" Style="{StaticResource Switch}" Content="Keep on top" Click="TopChanged" Margin="0,10,0,0"/></StackPanel>
+      </Grid>
+      <WrapPanel Grid.Row="1" Margin="0,0,0,16">
+        <Button Content="Setup" Click="SetupClick"/><Button x:Name="StartButton" Content="Start capture" Style="{StaticResource PrimaryButton}" Click="StartClick"/>
+        <Button x:Name="PauseButton" Content="Pause" Click="PauseClick"/><Button Content="Statistics ↗" Click="StatsClick"/>
+        <Button x:Name="AlertsButton" Content="Item alerts" Click="AlertsClick"/><Button Content="Export" Click="ExportClick" Margin="0"/>
+      </WrapPanel>
+      <Grid Grid.Row="2" Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBox x:Name="Search" TextChanged="SearchChanged" ToolTip="Search captured messages" AutomationProperties.Name="Search captured messages"/>
+        <CheckBox x:Name="FollowCheck" Content="Follow new" IsChecked="True" Grid.Column="1" Margin="14,0,0,0"/>
+      </Grid>
+      <TabControl x:Name="Tabs" Grid.Row="3">
+        <TabItem Header="All"><Grid><ListBox x:Name="AllList" ItemTemplate="{StaticResource MessageRow}"/>
+          <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" IsHitTestVisible="False">
+            <TextBlock Text="Your conversation lives here" FontSize="20" FontWeight="SemiBold" TextAlignment="Center"/>
+            <TextBlock Text="Choose the game and its text regions in Setup,&#10;then start capture." TextAlignment="Center" Foreground="{StaticResource Muted}" Margin="0,12,0,0" LineHeight="23"/>
+          </StackPanel></Grid></TabItem>
+        <TabItem Header="Buying"><ListBox x:Name="BuyingList" ItemTemplate="{StaticResource MessageRow}"/></TabItem>
+        <TabItem Header="Selling"><ListBox x:Name="SellingList" ItemTemplate="{StaticResource MessageRow}"/></TabItem>
+        <TabItem Header="Items"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <TextBlock x:Name="LootHeading" Text="No pickups captured yet" Margin="12,12,12,8" FontWeight="SemiBold" Foreground="#E5C38B"/>
+          <ScrollViewer Grid.Row="1" MaxHeight="140" VerticalScrollBarVisibility="Auto" Margin="12,0,12,10"><ItemsControl x:Name="LootTotals"><ItemsControl.ItemTemplate><DataTemplate>
+            <DockPanel Margin="0,4"><TextBlock Text="{Binding Value, StringFormat=×{0:N0}}" DockPanel.Dock="Right" Foreground="#E5C38B" FontWeight="SemiBold" Margin="20,0,0,0"/><TextBlock Text="{Binding Key}"/></DockPanel>
+          </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+          <ListBox Grid.Row="2" x:Name="ItemsList" ItemTemplate="{StaticResource MessageRow}"/>
+        </Grid></TabItem>
+      </TabControl>
+      <StackPanel Grid.Row="4" Margin="0,14,0,0"><TextBlock x:Name="StatusText" Foreground="{StaticResource Muted}" FontSize="11"/><local:TransparencyControl x:Name="Transparency"/></StackPanel>
     </Grid>
-    <WrapPanel Grid.Row="1" Margin="0,0,0,16"><Button Content="Setup" Click="SetupClick"/><Button x:Name="StartButton" Content="Start capture" Background="#DF755E" Foreground="#111722" FontWeight="SemiBold" Click="StartClick"/><Button x:Name="PauseButton" Content="Pause" Click="PauseClick"/><Button Content="Statistics ↗" Click="StatsClick"/><Button x:Name="AlertsButton" Content="Item alerts" Click="AlertsClick"/><Button Content="Demo" Click="DemoClick"/><Button Content="Export" Click="ExportClick" Margin="0"/></WrapPanel>
-    <Grid Grid.Row="2" Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="Search" TextChanged="SearchChanged" ToolTip="Filter captured messages" AutomationProperties.Name="Search captured messages"/><CheckBox x:Name="FollowCheck" Content="Follow new" IsChecked="True" Grid.Column="1" Margin="14,0,0,0"/></Grid>
-    <TabControl x:Name="Tabs" Grid.Row="3">
-      <TabItem Header="All"><Grid><ListBox x:Name="AllList" ItemTemplate="{StaticResource MessageRow}"/><StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" IsHitTestVisible="False"><TextBlock Text="A clear view of the conversation" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="Choose your game and mark the text regions in Setup.&#10;Or try Demo to explore both windows." TextAlignment="Center" Foreground="{StaticResource Muted}" Margin="0,12,0,0" LineHeight="23"/></StackPanel></Grid></TabItem>
-      <TabItem Header="Buying"><ListBox x:Name="BuyingList" ItemTemplate="{StaticResource MessageRow}"/></TabItem>
-      <TabItem Header="Selling"><ListBox x:Name="SellingList" ItemTemplate="{StaticResource MessageRow}"/></TabItem>
-      <TabItem Header="Items"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <TextBlock x:Name="LootHeading" Text="No pickups captured yet" Margin="12,12,12,8" FontWeight="SemiBold" Foreground="#D4B07B"/>
-        <ScrollViewer Grid.Row="1" MaxHeight="140" VerticalScrollBarVisibility="Auto" Margin="12,0,12,10"><ItemsControl x:Name="LootTotals"><ItemsControl.ItemTemplate><DataTemplate><DockPanel Margin="0,4"><TextBlock Text="{Binding Value, StringFormat=×{0:N0}}" DockPanel.Dock="Right" Foreground="#D4B07B" FontWeight="SemiBold" Margin="20,0,0,0"/><TextBlock Text="{Binding Key}"/></DockPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
-        <ListBox Grid.Row="2" x:Name="ItemsList" ItemTemplate="{StaticResource MessageRow}"/>
-      </Grid></TabItem>
-    </TabControl>
-    <Grid Grid.Row="4" Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="StatusText" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/><Button Grid.Column="1" Content="New session" Click="ResetClick" Padding="10,5" Margin="0" FontSize="11"/></Grid>
-  </Grid>
+  </DockPanel>
 </Window>

@@ -94,7 +94,7 @@ Check(alerts.Match("Alice: S> Steel Ore new price", now.AddSeconds(10)).Count ==
 Check(alerts.Match("DifferentPlayer: S> Steel Ore", now.AddSeconds(10)).Count == 1, "other players are not muted by cooldown");
 Check(alerts.Match("Alice: S> Steel Ore", now.AddSeconds(61)).Count == 1, "alert repeats after cooldown");
 watchSettings.AlertsEnabled = false;
-Check(alerts.Match("NewPlayer: S> Steel Ore", now).Count == 0, "global alert disable respected");
+Check(alerts.Match("NewPlayer: S> Steel Ore", now).Count == 1, "popup switch does not disable match detection");
 watchSettings.AlertsEnabled = true;
 watchSettings.BuyingItems = ["[buy]", ".*", ""];
 Check(alerts.Match("Player: S> everything", now).Count == 0, "watch items cannot inject regex wildcards");
@@ -144,4 +144,11 @@ Check(Observe(1.5, Notification("Leaf x7 earned.", brightness: 80)).Count == 0, 
 feed.Reset();
 Observe(0, Notification("Leaf x1 earned.", confidence: 40));
 Check(Observe(.5, Notification("Leat x1 earned.", confidence: 45)).Count == 0, "low confidence noise cannot create a pickup");
+session.Reset();
+session.Observe(new(27, 50000), TimeSpan.Zero);
+session.Observe(new(27, 51000), TimeSpan.FromMinutes(1));
+session.ResumeAt(new(27, 55000));
+Check(session.Snapshot(TimeSpan.FromMinutes(1)).GainedExperience == 1000, "resuming statistics excludes EXP earned while stopped");
+session.Observe(new(27, 55500), TimeSpan.FromMinutes(2));
+Check(session.Snapshot(TimeSpan.FromMinutes(2)).GainedExperience == 1500, "EXP continues accumulating after resume");
 Console.WriteLine($"\n{passed} checks passed.");

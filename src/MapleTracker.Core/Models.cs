@@ -27,7 +27,7 @@ public sealed class TrackerSettings
     public bool AlertsEnabled { get; set; } = true;
     public int PollMilliseconds { get; set; } = 500;
     public bool AlwaysOnTop { get; set; } = true;
-    public double Opacity { get; set; } = 1;
+    public double Opacity { get; set; } = .9;
     public double ChatLeft { get; set; } = 60;
     public double ChatTop { get; set; } = 80;
     public double ChatWidth { get; set; } = 700;
