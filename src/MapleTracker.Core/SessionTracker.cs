@@ -41,7 +41,9 @@ public sealed class SessionTracker(ExperienceTable table)
         var recent = samples.Count >= 2 && (activeTime - samples[0].Time).TotalSeconds > 0
             ? (total - samples[0].Xp) / (activeTime - samples[0].Time).TotalMinutes : 0;
         var required = current == null ? null : table.Required(current.Level);
-        var etaMinutes = required != null && current != null && recent > 0 ? (required.Value - current.Experience) / recent : (double?)null;
+        // Use the same cumulative session pace as EXP/hour. Older gains remain
+        // part of the estimate until Reset, including across Stop/Start.
+        var etaMinutes = required != null && current != null && rate > 0 ? (required.Value - current.Experience) / rate : (double?)null;
         TimeSpan? eta = minutes >= .25 && etaMinutes is >= 0 and < 5256000 ? TimeSpan.FromMinutes(etaMinutes.Value) : null;
         return new(current?.Level, current?.Experience, required, total, mesos, rate, minutes > 0 ? mesos / minutes : 0, recent, eta, activeTime);
     }

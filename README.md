@@ -47,7 +47,7 @@ Open **Item alerts** in the chat window. Put one item per line in **I want to bu
 - EXP is read from the numeric HUD. The supplied `data/exp-table.json` provides the requirements for levels 1–99, using 64-bit integers. The sum to reach level 100 is 18,194,778,397. Level 100 has no fabricated next-level estimate.
 - EXP gain is the difference in total character progression since the session baseline. Level-ups and EXP losses are accounted for. EXP notifications are not added again.
 - Meso looted counts recognized pickup amounts; it does not measure wallet balance, spending or trading. Supported examples: `You have gained mesos (+125)` and `You received 1,250 mesos.` Actual server wording may need another parser rule.
-- Per-minute/hour rates use active capture time. ETA uses the recent five-minute EXP pace and appears after 15 seconds of data. Stopping gains eventually clears the ETA. It is an estimate, not a guarantee.
+- Per-minute/hour rates and time to next level use the cumulative session average: total net EXP gained divided by active tracking time since Reset. ETA appears after 15 seconds when that average is positive. Every active minute contributes, so longer sessions smooth out short bursts and slow periods. Idle time with capture running lowers the average gradually; Stop freezes it, Start continues it, and Reset starts a new average. The displayed **Session avg** uses this same pace. It is an estimate, not a guarantee.
 
 ## Recognition limits
 

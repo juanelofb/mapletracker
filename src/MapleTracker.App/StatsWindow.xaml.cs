@@ -47,7 +47,7 @@ public partial class StatsWindow : Window
         EtaText.Text = s.Eta == null ? "Gathering pace…" : FormatDuration(s.Eta.Value); if (s.Level == 100) EtaText.Text = "Table complete";
         XpHour.Text = Compact(s.ExperiencePerMinute * 60); XpMinute.Text = $"{s.ExperiencePerMinute:N0} / min";
         MesoHour.Text = Compact(s.MesosPerMinute * 60); MesoMinute.Text = $"{s.MesosPerMinute:N0} / min";
-        TotalsText.Text = $"EXP gained    {s.GainedExperience:N0}\nMeso looted   {s.Mesos:N0}\nRecent EXP    {s.RecentExperiencePerMinute:N0} / min";
+        TotalsText.Text = $"EXP gained    {s.GainedExperience:N0}\nMeso looted   {s.Mesos:N0}\nSession avg   {s.ExperiencePerMinute:N0} EXP / min";
         ActiveText.Text = "Active capture    " + FormatDuration(s.ActiveTime); Diagnostics.Text = controller.DiagnosticsText;
     }
     private static string Compact(double v) => Math.Abs(v) >= 1e9 ? $"{v / 1e9:0.##}B" : Math.Abs(v) >= 1e6 ? $"{v / 1e6:0.##}M" : Math.Abs(v) >= 1e3 ? $"{v / 1e3:0.#}K" : $"{v:N0}";

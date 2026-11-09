@@ -18,7 +18,7 @@
         <ProgressBar x:Name="ExperienceProgress" Height="3" Minimum="0" Maximum="100" Foreground="#A8B9FF" Background="#28FFFFFF" BorderThickness="0" Margin="0,5,0,4"/>
         <TextBlock x:Name="RemainingText" Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
       </StackPanel></Border>
-      <Border Background="#196E7FCB" Height="52" Padding="10,6" CornerRadius="8" Margin="0,0,0,8">
+      <Border Background="#196E7FCB" Height="52" Padding="10,6" CornerRadius="8" Margin="0,0,0,8" ToolTip="Based on total EXP gained divided by active tracking time since Reset. Stop pauses the average; Start continues it.">
         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <TextBlock Text="TIME TO NEXT LEVEL" Foreground="#B7C6FF" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center"/>
           <TextBlock x:Name="EtaText" Grid.Column="1" Text="—" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="NoWrap"/>
