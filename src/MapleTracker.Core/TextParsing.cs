@@ -35,8 +35,8 @@ public static class TextParsing
     public static long? Mesos(string text)
     {
         var m = Match(text, @"(?:received|gained|obtained|picked up)\s+(?<amount>\d[\d,]*)\s+mesos?\b");
-        if (!m.Success) m = Match(text, @"\bmesos?\s*(?:[(:]\s*\+?|\+)(?<amount>\d[\d,]*)");
-        if (!m.Success) m = Match(text, @"(?:received|gained|obtained)\s+mesos?\s*[(:]?\s*\+?(?<amount>\d[\d,]*)");
+        if (!m.Success) m = Match(text, @"\bmesos?\s*(?:[(:]\s*\+?|\+)(?<amount>\d[\d,]*)(?![\p{L}\p{N},])");
+        if (!m.Success) m = Match(text, @"(?:received|gained|obtained)\s+mesos?\s*[(:]?\s*\+?(?<amount>\d[\d,]*)(?![\p{L}\p{N},])");
         return m.Success ? Number(m.Groups["amount"].Value) : null;
     }
 }

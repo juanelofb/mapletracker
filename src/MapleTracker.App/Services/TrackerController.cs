@@ -16,6 +16,8 @@ public sealed class TrackerController
     public GameWindow? Target { get; set; }
     public string Status { get; private set; } = "Choose your game window in Setup to begin.";
     public string DiagnosticsText { get; private set; } = "No frames read yet.";
+    public double LastOcrMilliseconds { get; private set; }
+    public double WorkingSetMegabytes => Environment.WorkingSet / (1024.0 * 1024.0);
     public bool Running { get; private set; }
     public bool StatisticsRunning { get; private set; } = true;
     public event Action? AppearanceChanged;
@@ -134,7 +136,9 @@ public sealed class TrackerController
             foreach (var line in chatLines.Update(frame.Chat, Settings.ChatHistoryOnly)) AddChat(line);
             foreach (var line in lootLines.Update(frame.LootLines, notificationClock.Elapsed)) AddLoot(line, statsVersion == statisticsGeneration);
             if (statsVersion == statisticsGeneration) AcceptHud(frame.Hud);
+            LastOcrMilliseconds = frame.OcrMilliseconds;
             DiagnosticsText = $"{HudStatus}\nLEVEL  {frame.LevelText}\nEXP attempts\n{string.Join('\n', frame.HudCandidates.Select(c => c.Text))}\n\nLOOT\n{string.Join('\n', frame.Loot)}\n\nCHAT · {chatLines.IgnoredLines} draft/unverified lines ignored\n{string.Join('\n', frame.Chat)}";
+            DiagnosticsText += $"\n\nRECOGNITION · {Settings.RecognitionQuality}\n{frame.OcrMilliseconds:N0} ms / frame · {frame.ChatPasses} chat passes\n{WorkingSetMegabytes:N0} MB app memory";
             Status = (frame.Hud == null ? "Reading · EXP unreadable; check regions in Setup" : "Live · " + target.Title) + (journalWarning == null ? "" : " · " + journalWarning);
             WriteRecognitionDiagnostics(frame);
         }

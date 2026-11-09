@@ -13,7 +13,7 @@ public sealed class LootFeedTracker
         public double Top = line.Top;
         public double Brightness = line.Brightness;
         public TimeSpan LastSeen = time;
-        public int Observations;
+        public readonly Dictionary<long, (int Count, NotificationLine Best)> Evidence = [];
         public bool Counted;
     }
     private readonly List<Track> tracks = [];
@@ -69,12 +69,18 @@ public sealed class LootFeedTracker
             track.LastSeen = now;
             track.Brightness = Math.Min(track.Brightness, line.Brightness);
             if (line.Confidence > track.Best.Confidence) track.Best = line;
-            if (line.Confidence >= 55) track.Observations++;
-            // Require two readable sightings. A garbled one-frame item is not counted.
-            if (!track.Counted && track.Observations >= 2)
+            var amount = Signature(line.Text)!.Value.Amount;
+            if (line.Confidence >= 55)
+            {
+                var evidence = track.Evidence.GetValueOrDefault(amount, (Count: 0, Best: line));
+                track.Evidence[amount] = (evidence.Count + 1, line.Confidence > evidence.Best.Confidence ? line : evidence.Best);
+            }
+            // Two readable frames must agree on the amount, not just on "some loot".
+            if (!track.Counted && track.Evidence.TryGetValue(amount, out var confirmed) && confirmed.Count >= 2)
             {
                 track.Counted = true;
-                added.Add(track.Best.Text);
+                track.Best = confirmed.Best;
+                added.Add(confirmed.Best.Text);
             }
         }
         return added;

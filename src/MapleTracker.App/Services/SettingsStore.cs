@@ -18,6 +18,7 @@ public sealed class SettingsStore
                 !value.Chat.IsValid || !value.Loot.IsValid || !value.Level.IsValid || !value.Experience.IsValid ||
                 value.BuyingTerms == null || value.SellingTerms == null) throw new JsonException("Invalid regions or keywords.");
             value.PollMilliseconds = Math.Clamp(value.PollMilliseconds, 250, 5000);
+            if (!Enum.IsDefined(value.RecognitionQuality)) value.RecognitionQuality = RecognitionQuality.Balanced;
             value.Opacity = double.IsFinite(value.Opacity) ? Math.Clamp(value.Opacity, .4, 1) : 1;
             using var document = JsonDocument.Parse(json);
             if (!document.RootElement.TryGetProperty(nameof(TrackerSettings.ChatOpacity), out _)) value.ChatOpacity = value.Opacity;

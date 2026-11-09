@@ -37,6 +37,8 @@ internal static class Program
             CheckScreenshotOcr();
             CheckLootPasses();
             CheckGameplayFrames();
+            CheckBadgeScreenshot();
+            CheckRepeatFixtures();
             Console.WriteLine($"\n{passed} WPF regression checks passed.");
             return 0;
         }
@@ -81,10 +83,21 @@ internal static class Program
         picker.ItemsSource = new[] { target }; picker.SelectedItem = target;
         ((TextBox)dialog.FindName("BuyingTerms")).Text = "WTB, purchase";
         ((CheckBox)dialog.FindName("HistoryOnly")).IsChecked = true;
+        ((CheckBox)dialog.FindName("OmitBadges")).IsChecked = false;
+        ((ComboBox)dialog.FindName("QualityPicker")).SelectedItem = RecognitionQuality.High;
         dialog.Loaded += async (_, _) =>
         {
             try
             {
+                var previewPath = Environment.GetEnvironmentVariable("MAPLETRACKER_SETUP_PREVIEW");
+                if (save && !failCapture && !string.IsNullOrEmpty(previewPath))
+                {
+                    dialog.UpdateLayout();
+                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)dialog.ActualWidth, (int)dialog.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    bitmap.Render(dialog);
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var output = System.IO.File.Create(previewPath); encoder.Save(output);
+                }
                 for (int i = 0; i < snapshots; i++)
                 {
                     await dialog.TakeSnapshotAsync();
@@ -109,12 +122,14 @@ internal static class Program
             Check(controller.Target == (save ? target : null), "target applied only on Save");
             Check(settings.BuyingTerms[0] == (save ? "WTB" : "Buying"), "edited settings applied only on Save");
             Check(settings.ChatHistoryOnly == save, "history-only capture preference applied only on Save");
+            Check(settings.IgnoreChannelBadges != save && settings.RecognitionQuality == (save ? RecognitionQuality.High : RecognitionQuality.Balanced), "badge and quality preferences apply only on Save");
             if (save)
             {
                 var store = new SettingsStore(); store.Save(settings);
                 var loaded = store.Load();
                 Check(loaded.WindowTitle == target.Title && loaded.BuyingTerms[1] == "purchase", "saved setup survives a settings round trip");
                 Check(loaded.ChatHistoryOnly, "history-only capture preference survives restart");
+                Check(!loaded.IgnoreChannelBadges && loaded.RecognitionQuality == RecognitionQuality.High, "quality and badge preferences survive restart");
             }
         }
         finally
@@ -252,6 +267,48 @@ internal static class Program
                 var alerts = frame.Chat.SelectMany(line => matcher.Match(line, DateTimeOffset.Now)).ToArray();
                 Check(alerts.Length == 1 && alerts[0].Player == "Gibs", "pink banner OCR reaches the item alert matcher with the sender and buying intent");
             }
+        }
+    }
+
+    private static void CheckBadgeScreenshot()
+    {
+        var path = Environment.GetEnvironmentVariable("MAPLETRACKER_BADGE_SCREENSHOT");
+        if (string.IsNullOrEmpty(path)) return;
+        using var image = new Bitmap(path);
+        var badges = ChannelBadges.Find(image, Console.WriteLine);
+        Console.WriteLine("Badge bounds: " + string.Join("; ", badges.Select(r => r.ToString())));
+        Check(badges.Length == 6, "all six channel/ear rectangles are detected across cyan, pink and yellow rows");
+        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        using var reader = new OcrReader(table);
+        foreach (var quality in Enum.GetValues<RecognitionQuality>())
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var result = reader.ReadChat(image, new TrackerSettings { Chat = new(0, 0, 1, 1), ChatHistoryOnly = true, RecognitionQuality = quality }, null);
+            Console.WriteLine($"PROFILE {quality}: {clock.Elapsed.TotalMilliseconds:N0} ms, {Environment.WorkingSet / (1024 * 1024)} MB app working set. " + string.Join(" / ", result));
+            Check(result.All(line => !System.Text.RegularExpressions.Regex.IsMatch(line, @"\bCH\s*\d{1,3}\b")), "channel badge text is omitted with " + quality);
+        }
+    }
+
+    private static void CheckRepeatFixtures()
+    {
+        var folder = Environment.GetEnvironmentVariable("MAPLETRACKER_REPEAT_FIXTURES");
+        if (string.IsNullOrEmpty(folder)) return;
+        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        using var reader = new OcrReader(table);
+        // Frozen frame 1 is unreadable in the previous release; frame 2's accepted
+        // value is 33,199 (the screenshot's 33,189 differs by 10 within HUD tolerance).
+        foreach (var (name, exp) in new[] { ("game-1", 32800L), ("game-2", 33199L), ("game-final", 33701L) })
+        foreach (var quality in Enum.GetValues<RecognitionQuality>())
+        {
+            using var image = new Bitmap(System.IO.Path.Combine(folder, name + "-client.png"));
+            var settings = new TrackerSettings { Chat = new(.21, .886, .4, .025), ChatHistoryOnly = true, RecognitionQuality = quality };
+            var frame = reader.Read(image, settings);
+            Console.WriteLine($"FRAME {name} {quality}: {frame.OcrMilliseconds:N0} ms, {frame.ChatPasses} chat passes: " + string.Join(" / ", frame.Chat));
+            Check(frame.Hud == new HudReading(28, exp) || name == "game-1" && frame.Hud == null, "recognition preset preserves validated HUD or rejects unreadable digits on " + name + " " + quality);
+            if (name == "game-1" && quality == RecognitionQuality.High)
+                Check(frame.Chat.Any(line => line.Contains("490") && line.Contains("kumbi", StringComparison.OrdinalIgnoreCase)), "high preset retains the observed Kumbi price after omitting its badge");
+            if (name == "game-final" && quality == RecognitionQuality.High)
+                Check(frame.Chat.Any(line => new TradeClassifier(settings).Classify(line).HasFlag(MessageKind.Selling)), "high preset recognizes selling intent on the previously repeating Scaat banner");
         }
     }
 

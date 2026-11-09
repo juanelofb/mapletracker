@@ -12,9 +12,11 @@ public sealed record RecognitionFrame(string[] Chat, string[] Loot, string Level
 {
     public NotificationLine[] LootLines { get; init; } = [];
     public HudCandidate[] HudCandidates { get; init; } = [];
+    public double OcrMilliseconds { get; init; }
+    public int ChatPasses { get; init; }
 }
 
-public sealed class OcrReader : IDisposable
+public sealed partial class OcrReader : IDisposable
 {
     private readonly TesseractEngine engine;
     private readonly ExperienceTable table;
@@ -30,6 +32,8 @@ public sealed class OcrReader : IDisposable
 
     public RecognitionFrame Read(Bitmap frame, TrackerSettings settings, string? diagnostics = null)
     {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        chatPasses = 0;
         var chat = ReadChat(frame, settings, diagnostics);
         var clearLoot = ReadRegion(frame, settings.Loot, "loot", true, diagnostics, thresholdOverride: 100);
         var fadedLoot = ReadRegion(frame, settings.Loot, "loot-faded", true, diagnostics, thresholdOverride: 45);
@@ -57,44 +61,13 @@ public sealed class OcrReader : IDisposable
             if (hud != null) break;
         }
         hud ??= HudConsensus.Read(level, candidates, table);
-        var result = new RecognitionFrame(chat, loot, level, exp, hud) { LootLines = lootLines, HudCandidates = candidates.ToArray() };
+        var result = new RecognitionFrame(chat, loot, level, exp, hud) { LootLines = lootLines, HudCandidates = candidates.ToArray(), OcrMilliseconds = clock.Elapsed.TotalMilliseconds, ChatPasses = chatPasses };
         if (diagnostics != null)
         {
             File.WriteAllText(Path.Combine(diagnostics, "recognition.json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
             File.WriteAllText(Path.Combine(diagnostics, "hud-attempts.json"), JsonSerializer.Serialize(attempts, new JsonSerializerOptions { WriteIndented = true }));
         }
         return result;
-    }
-
-    private string[] ReadChat(Bitmap frame, TrackerSettings settings, string? diagnostics)
-    {
-        if (!settings.ChatHistoryOnly) return Region(frame, settings.Chat, "chat", false, diagnostics);
-        var mode = settings.Chat.Height * frame.Height <= 40 ? PageSegMode.SingleLine : PageSegMode.SingleBlock;
-        using var crop = WindowCapture.Crop(frame, settings.Chat);
-        if (mode == PageSegMode.SingleLine && BannerBackground(crop) != null)
-        {
-            var badge = FindChannelBadge(crop) != null;
-            var bannerLines = ReadRegion(frame, settings.Chat, "chat", false, diagnostics, false, 0, mode, false, true)
-                .Select(line => NormalizeBanner(line.Text, badge)).ToArray();
-            if (bannerLines.Length > 0) return bannerLines;
-        }
-        var white = ReadRegion(frame, settings.Chat, "chat", true, diagnostics, false, 100, mode);
-        if (white.Any(line => ChatFeedTracker.IsPublishedMessage(line.Text))) return white.Select(line => line.Text).ToArray();
-        var inverted = ReadRegion(frame, settings.Chat, "chat-inverted", false, diagnostics, false, 0, mode);
-        if (inverted.Any(line => ChatFeedTracker.IsPublishedMessage(line.Text))) return inverted.Select(line => line.Text).ToArray();
-        // Keep system text from the clearer pass, rather than mixing two OCR views into duplicate messages.
-        var best = white.Sum(l => l.Confidence) >= inverted.Sum(l => l.Confidence) ? white : inverted;
-        return best.Where(l => l.Confidence >= 40).Select(l => l.Text).ToArray();
-    }
-
-    private static string NormalizeBanner(string text, bool channelBadge)
-    {
-        if (!channelBadge) return text;
-        text = text.TrimStart('[', '|', ' ');
-        if (ChatFeedTracker.IsPublishedMessage(text)) return text;
-        // The channel badge separates the sender from the body even if OCR loses the colon.
-        var match = System.Text.RegularExpressions.Regex.Match(text, @"^(?<player>[\p{L}\p{N}_]{1,24})\s+(?<body>.+)$");
-        return match.Success ? $"{match.Groups["player"].Value}: {match.Groups["body"].Value}" : text;
     }
 
     internal static NotificationLine[] SelectLootLines(NotificationLine[] clear, NotificationLine[] faded)
@@ -115,11 +88,11 @@ public sealed class OcrReader : IDisposable
         => ReadRegion(frame, region, name, whiteText, diagnostics, singleLine, thresholdOverride, segmentation).Select(line => line.Text).ToArray();
 
     private NotificationLine[] ReadRegion(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics,
-        bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null, bool grayscale = false, bool banner = false)
+        bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null, bool grayscale = false, bool banner = false, bool maskBadge = true)
     {
         using var crop = WindowCapture.Crop(frame, region);
         var threshold = thresholdOverride ?? (singleLine ? 150 : 45);
-        using var prepared = Prepare(crop, (whiteText || singleLine) && threshold > 0, threshold, grayscale, banner);
+        using var prepared = Prepare(crop, (whiteText || singleLine) && threshold > 0, threshold, grayscale, banner, maskBadge);
         if (diagnostics != null)
         {
             Directory.CreateDirectory(diagnostics);
@@ -130,7 +103,7 @@ public sealed class OcrReader : IDisposable
         prepared.Save(memory, ImageFormat.Png);
         using var pix = Pix.LoadFromMemory(memory.ToArray());
         engine.SetVariable("tessedit_char_whitelist", name == "level" ? "0123456789" : "");
-        using var page = engine.Process(pix, segmentation ?? (singleLine ? PageSegMode.SingleWord : name == "loot" ? PageSegMode.SparseText : PageSegMode.Auto));
+        using var page = engine.Process(pix, segmentation ?? (singleLine ? PageSegMode.SingleWord : name.StartsWith("loot", StringComparison.Ordinal) ? PageSegMode.SparseText : PageSegMode.Auto));
         var lines = new List<NotificationLine>();
         using var iter = page.GetIterator();
         iter.Begin();
@@ -142,7 +115,7 @@ public sealed class OcrReader : IDisposable
                 iter.TryGetBoundingBox(PageIteratorLevel.TextLine, out var bounds);
                 var top = Math.Clamp((bounds.Y1 - 12) / 3.0 / crop.Height, 0, 1);
                 var height = (bounds.Y2 - bounds.Y1) / 3.0 / crop.Height;
-                var brightness = name == "loot" ? TextBrightness(crop, bounds) : 160;
+                var brightness = name.StartsWith("loot", StringComparison.Ordinal) ? TextBrightness(crop, bounds) : 160;
                 lines.Add(new(text, top, height, iter.GetConfidence(PageIteratorLevel.TextLine), brightness));
             }
         } while (iter.Next(PageIteratorLevel.TextLine));
@@ -201,7 +174,7 @@ public sealed class OcrReader : IDisposable
         File.WriteAllText(Path.Combine(directory, "probe.json"), JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    private static unsafe Bitmap Prepare(Bitmap image, bool whiteText, int threshold, bool grayscale = false, bool banner = false)
+    private static unsafe Bitmap Prepare(Bitmap image, bool whiteText, int threshold, bool grayscale = false, bool banner = false, bool maskBadge = true)
     {
         var background = banner ? BannerBackground(image) : null;
         grayscale |= background is { } color && color.B > color.G * .5;
@@ -212,10 +185,11 @@ public sealed class OcrReader : IDisposable
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
             g.DrawImage(image, new Rectangle(12, 12, image.Width * 3, image.Height * 3));
-            if (background is { } fill && FindChannelBadge(image) is { } badge)
+            if (maskBadge && background is { } fill)
             {
                 using var brush = new SolidBrush(fill);
-                g.FillRectangle(brush, 12 + badge.X * 3, 12, badge.Width * 3, image.Height * 3);
+                foreach (var badge in ChannelBadges.Find(image))
+                    g.FillRectangle(brush, 12 + badge.X * 3, 12 + badge.Y * 3, badge.Width * 3, badge.Height * 3);
             }
         }
         var data = output.LockBits(new Rectangle(0, 0, output.Width, output.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
@@ -268,26 +242,8 @@ public sealed class OcrReader : IDisposable
         if (buckets.Count == 0) return null;
         var most = buckets.Values.MaxBy(v => v.Count);
         var c = most.Color;
-        return most.Count > image.Width * image.Height / 6.0 * .2 && c.R > 120 && c.G > 70 &&
+        return most.Count > image.Width * image.Height / 6.0 * .2 && Math.Max(c.R, Math.Max(c.G, c.B)) > 110 &&
             Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) > 30 ? c : null;
-    }
-    private static Rectangle? FindChannelBadge(Bitmap image)
-    {
-        for (int y = 2; y < image.Height / 2; y++)
-        {
-            int start = -1;
-            for (int x = 15; x < image.Width / 3; x++)
-            {
-                var p = image.GetPixel(x, y);
-                if (p.R > 210 && p.G > 185 && p.B > 150) { if (start < 0) start = x; }
-                else
-                {
-                    if (start >= 0 && x - start >= 20) return new Rectangle(start - 2, 0, x - start + 4, image.Height);
-                    start = -1;
-                }
-            }
-        }
-        return null;
     }
     public void Dispose() => engine.Dispose();
 }

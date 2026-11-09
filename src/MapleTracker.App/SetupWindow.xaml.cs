@@ -29,6 +29,10 @@ public partial class SetupWindow : Window
         draft = JsonSerializer.Deserialize<TrackerSettings>(JsonSerializer.Serialize(controller.Settings))!;
         InitializeComponent();
         HistoryOnly.IsChecked = draft.ChatHistoryOnly;
+        OmitBadges.IsChecked = draft.IgnoreChannelBadges;
+        QualityPicker.ItemsSource = Enum.GetValues<RecognitionQuality>();
+        QualityPicker.SelectedItem = draft.RecognitionQuality;
+        ResourceUsage.Text = $"Last captured frame: {controller.LastOcrMilliseconds:N0} ms · Current app memory: {controller.WorkingSetMegabytes:N0} MB. Test recognition measures the selected preset.";
         BuyingTerms.Text = string.Join(", ", draft.BuyingTerms); SellingTerms.Text = string.Join(", ", draft.SellingTerms);
         RefreshWindows(); UpdateRegionInfo(); Loaded += (_, _) => WindowAppearance.DarkTitleBar(this);
         Closed += (_, _) => reference?.Dispose();
@@ -41,6 +45,17 @@ public partial class SetupWindow : Window
             ?? windows.FirstOrDefault(w => w.Title == draft.WindowTitle);
     }
     private void RefreshClick(object sender, RoutedEventArgs e) => RefreshWindows();
+    private void QualityChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (QualityDescription == null) return;
+        QualityDescription.Text = (QualityPicker.SelectedItem is RecognitionQuality quality ? quality : RecognitionQuality.Balanced) switch
+        {
+            RecognitionQuality.Low => "Low: 1 contrast view per chat row/part. Least OCR work; difficult text may be missed or misread.",
+            RecognitionQuality.High => "High: 4 contrast views per chat row/part, with candidate comparison. More CPU work; difficult text and prices may still be wrong.",
+            _ => "Balanced: 2 contrast views per chat row/part. A compromise between CPU work and difficult text recognition."
+        };
+        QualityDescription.Text += " All presets share one OCR model. Extra passes run sequentially; RAM and processing time vary with the selected region and PC.";
+    }
     private async void SnapshotClick(object sender, RoutedEventArgs e) => await TakeSnapshotAsync();
 
     internal async Task TakeSnapshotAsync()
@@ -141,7 +156,10 @@ public partial class SetupWindow : Window
         {
             using var image = (Bitmap)reference.Clone();
             draft.ChatHistoryOnly = HistoryOnly.IsChecked == true;
+            draft.IgnoreChannelBadges = OmitBadges.IsChecked == true;
+            draft.RecognitionQuality = QualityPicker.SelectedItem is RecognitionQuality quality ? quality : RecognitionQuality.Balanced;
             var result = await Task.Run(() => { using var reader = new OcrReader(controller.Table); return reader.Read(image, draft); });
+            ResourceUsage.Text = $"Test: {result.OcrMilliseconds:N0} ms / frame · {result.ChatPasses} chat passes · Current app memory: {controller.WorkingSetMegabytes:N0} MB. One frame, not a fixed resource guarantee.";
             var text = $"LEVEL: {result.LevelText}\nEXP: {result.ExpText}\nValidated HUD: {(result.Hud == null ? "not readable" : $"Level {result.Hud.Level}, EXP {result.Hud.Experience:N0}")}\n\nCHAT\n{string.Join('\n', result.Chat)}\n\nLOOT\n{string.Join('\n', result.Loot)}";
             var results = new Window { Owner = this, Style = (Style)FindResource("TrackerWindow"), Title = "MapleTracker · Recognition test", Width = 680, Height = 480, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = new TextBox { Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(20) } };
             results.ShowDialog(); SetupStatus.Text = result.Hud == null ? "HUD unreadable. Tighten the level and EXP boxes, then test again." : "HUD recognized. Review chat and loot before saving.";
@@ -159,6 +177,8 @@ public partial class SetupWindow : Window
         if (changedSource || changedRegions) controller.Reset();
         s.Chat = draft.Chat; s.Loot = draft.Loot; s.Level = draft.Level; s.Experience = draft.Experience;
         s.ChatHistoryOnly = HistoryOnly.IsChecked == true;
+        s.IgnoreChannelBadges = OmitBadges.IsChecked == true;
+        s.RecognitionQuality = QualityPicker.SelectedItem is RecognitionQuality quality ? quality : RecognitionQuality.Balanced;
         s.BuyingTerms = BuyingTerms.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         s.SellingTerms = SellingTerms.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         s.WindowTitle = target.Title; controller.Target = target;

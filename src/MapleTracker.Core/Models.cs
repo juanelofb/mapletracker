@@ -4,6 +4,7 @@ namespace MapleTracker.Core;
 
 [Flags]
 public enum MessageKind { Chat = 0, Buying = 1, Selling = 2, Item = 4 }
+public enum RecognitionQuality { Low, Balanced, High }
 public sealed record FeedEntry(DateTimeOffset Time, string Text, MessageKind Kind, string? Item = null, long Quantity = 0);
 public sealed record LootPickup(string Name, long Quantity);
 public sealed record HudReading(int Level, long Experience);
@@ -18,6 +19,8 @@ public sealed class TrackerSettings
     public string WindowTitle { get; set; } = "";
     public CaptureRegion Chat { get; set; } = new(.210, .916, .385, .035);
     public bool ChatHistoryOnly { get; set; }
+    public bool IgnoreChannelBadges { get; set; } = true;
+    public RecognitionQuality RecognitionQuality { get; set; } = RecognitionQuality.Balanced;
     public CaptureRegion Loot { get; set; } = new(.85, .75, .15, .06);
     public CaptureRegion Level { get; set; } = new(.238, .969, .021, .022);
     public CaptureRegion Experience { get; set; } = new(.528, .958, .085, .019);

@@ -36,7 +36,9 @@ public sealed record TradeMessage(string Player, string Body)
             foreach (Match match in Regex.Matches(body, pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)))
             {
                 // Linked item names may themselves contain words that resemble trade terms.
-                if (!literal.StartsWith('[') && body.LastIndexOf('[', match.Index) > body.LastIndexOf(']', match.Index)) continue;
+                int open = body.LastIndexOf('[', match.Index);
+                // Only skip markers inside a complete link. OCR may lose its closing bracket.
+                if (!literal.StartsWith('[') && open > body.LastIndexOf(']', match.Index) && body.IndexOf(']', match.Index) >= 0) continue;
                 markers.Add(new(match.Index, match.Length, kind));
             }
         }
