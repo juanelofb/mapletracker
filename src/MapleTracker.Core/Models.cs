@@ -17,6 +17,7 @@ public sealed class TrackerSettings
 {
     public string WindowTitle { get; set; } = "";
     public CaptureRegion Chat { get; set; } = new(.210, .916, .385, .035);
+    public bool ChatHistoryOnly { get; set; }
     public CaptureRegion Loot { get; set; } = new(.85, .75, .15, .06);
     public CaptureRegion Level { get; set; } = new(.238, .969, .021, .022);
     public CaptureRegion Experience { get; set; } = new(.528, .958, .085, .019);

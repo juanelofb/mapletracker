@@ -28,6 +28,7 @@ public partial class SetupWindow : Window
         this.captureSnapshot = captureSnapshot;
         draft = JsonSerializer.Deserialize<TrackerSettings>(JsonSerializer.Serialize(controller.Settings))!;
         InitializeComponent();
+        HistoryOnly.IsChecked = draft.ChatHistoryOnly;
         BuyingTerms.Text = string.Join(", ", draft.BuyingTerms); SellingTerms.Text = string.Join(", ", draft.SellingTerms);
         RefreshWindows(); UpdateRegionInfo(); Loaded += (_, _) => WindowAppearance.DarkTitleBar(this);
         Closed += (_, _) => reference?.Dispose();
@@ -139,6 +140,7 @@ public partial class SetupWindow : Window
         try
         {
             using var image = (Bitmap)reference.Clone();
+            draft.ChatHistoryOnly = HistoryOnly.IsChecked == true;
             var result = await Task.Run(() => { using var reader = new OcrReader(controller.Table); return reader.Read(image, draft); });
             var text = $"LEVEL: {result.LevelText}\nEXP: {result.ExpText}\nValidated HUD: {(result.Hud == null ? "not readable" : $"Level {result.Hud.Level}, EXP {result.Hud.Experience:N0}")}\n\nCHAT\n{string.Join('\n', result.Chat)}\n\nLOOT\n{string.Join('\n', result.Loot)}";
             var results = new Window { Owner = this, Style = (Style)FindResource("TrackerWindow"), Title = "MapleTracker · Recognition test", Width = 680, Height = 480, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = new TextBox { Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(20) } };
@@ -153,9 +155,10 @@ public partial class SetupWindow : Window
         if (WindowPicker.SelectedItem is not GameWindow target) { SetupStatus.Text = "Choose a game window before saving."; return; }
         var s = controller.Settings;
         bool changedSource = controller.Target?.Handle != target.Handle;
-        bool changedRegions = s.Chat != draft.Chat || s.Loot != draft.Loot || s.Level != draft.Level || s.Experience != draft.Experience;
+        bool changedRegions = s.Chat != draft.Chat || s.Loot != draft.Loot || s.Level != draft.Level || s.Experience != draft.Experience || s.ChatHistoryOnly != (HistoryOnly.IsChecked == true);
         if (changedSource || changedRegions) controller.Reset();
         s.Chat = draft.Chat; s.Loot = draft.Loot; s.Level = draft.Level; s.Experience = draft.Experience;
+        s.ChatHistoryOnly = HistoryOnly.IsChecked == true;
         s.BuyingTerms = BuyingTerms.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         s.SellingTerms = SellingTerms.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         s.WindowTitle = target.Title; controller.Target = target;

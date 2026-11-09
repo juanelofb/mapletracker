@@ -30,8 +30,10 @@ public sealed class OcrReader : IDisposable
 
     public RecognitionFrame Read(Bitmap frame, TrackerSettings settings, string? diagnostics = null)
     {
-        var chat = Region(frame, settings.Chat, "chat", false, diagnostics);
-        var lootLines = ReadRegion(frame, settings.Loot, "loot", true, diagnostics);
+        var chat = ReadChat(frame, settings, diagnostics);
+        var clearLoot = ReadRegion(frame, settings.Loot, "loot", true, diagnostics, thresholdOverride: 100);
+        var fadedLoot = ReadRegion(frame, settings.Loot, "loot-faded", true, diagnostics, thresholdOverride: 45);
+        var lootLines = SelectLootLines(clearLoot, fadedLoot);
         var loot = lootLines.Select(line => line.Text).ToArray();
         var level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true));
         if (!int.TryParse(level, out var numericLevel) || numericLevel is < 1 or > 100)
@@ -64,16 +66,60 @@ public sealed class OcrReader : IDisposable
         return result;
     }
 
+    private string[] ReadChat(Bitmap frame, TrackerSettings settings, string? diagnostics)
+    {
+        if (!settings.ChatHistoryOnly) return Region(frame, settings.Chat, "chat", false, diagnostics);
+        var mode = settings.Chat.Height * frame.Height <= 40 ? PageSegMode.SingleLine : PageSegMode.SingleBlock;
+        using var crop = WindowCapture.Crop(frame, settings.Chat);
+        if (mode == PageSegMode.SingleLine && BannerBackground(crop) != null)
+        {
+            var badge = FindChannelBadge(crop) != null;
+            var bannerLines = ReadRegion(frame, settings.Chat, "chat", false, diagnostics, false, 0, mode, false, true)
+                .Select(line => NormalizeBanner(line.Text, badge)).ToArray();
+            if (bannerLines.Length > 0) return bannerLines;
+        }
+        var white = ReadRegion(frame, settings.Chat, "chat", true, diagnostics, false, 100, mode);
+        if (white.Any(line => ChatFeedTracker.IsPublishedMessage(line.Text))) return white.Select(line => line.Text).ToArray();
+        var inverted = ReadRegion(frame, settings.Chat, "chat-inverted", false, diagnostics, false, 0, mode);
+        if (inverted.Any(line => ChatFeedTracker.IsPublishedMessage(line.Text))) return inverted.Select(line => line.Text).ToArray();
+        // Keep system text from the clearer pass, rather than mixing two OCR views into duplicate messages.
+        var best = white.Sum(l => l.Confidence) >= inverted.Sum(l => l.Confidence) ? white : inverted;
+        return best.Where(l => l.Confidence >= 40).Select(l => l.Text).ToArray();
+    }
+
+    private static string NormalizeBanner(string text, bool channelBadge)
+    {
+        if (!channelBadge) return text;
+        text = text.TrimStart('[', '|', ' ');
+        if (ChatFeedTracker.IsPublishedMessage(text)) return text;
+        // The channel badge separates the sender from the body even if OCR loses the colon.
+        var match = System.Text.RegularExpressions.Regex.Match(text, @"^(?<player>[\p{L}\p{N}_]{1,24})\s+(?<body>.+)$");
+        return match.Success ? $"{match.Groups["player"].Value}: {match.Groups["body"].Value}" : text;
+    }
+
+    internal static NotificationLine[] SelectLootLines(NotificationLine[] clear, NotificationLine[] faded)
+    {
+        var selected = new List<NotificationLine>();
+        // OCR passes are alternative readings of one frame, never additional sightings.
+        foreach (var line in clear.Concat(faded))
+        {
+            if (line.Confidence < 55 || TextParsing.Loot(line.Text) == null && TextParsing.Mesos(line.Text) == null) continue;
+            if (selected.Any(other => Math.Abs(other.Top - line.Top) < Math.Max(.05, Math.Min(other.Height, line.Height) * .45))) continue;
+            selected.Add(line);
+        }
+        return selected.OrderBy(line => line.Top).ToArray();
+    }
+
     private string[] Region(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics,
         bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null)
         => ReadRegion(frame, region, name, whiteText, diagnostics, singleLine, thresholdOverride, segmentation).Select(line => line.Text).ToArray();
 
     private NotificationLine[] ReadRegion(Bitmap frame, CaptureRegion region, string name, bool whiteText, string? diagnostics,
-        bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null)
+        bool singleLine = false, int? thresholdOverride = null, PageSegMode? segmentation = null, bool grayscale = false, bool banner = false)
     {
         using var crop = WindowCapture.Crop(frame, region);
         var threshold = thresholdOverride ?? (singleLine ? 150 : 45);
-        using var prepared = Prepare(crop, (whiteText || singleLine) && threshold > 0, threshold);
+        using var prepared = Prepare(crop, (whiteText || singleLine) && threshold > 0, threshold, grayscale, banner);
         if (diagnostics != null)
         {
             Directory.CreateDirectory(diagnostics);
@@ -125,6 +171,15 @@ public sealed class OcrReader : IDisposable
     public void Probe(Bitmap frame, TrackerSettings settings, string directory)
     {
         var results = new List<object>();
+        results.Add(new { name = "banner", lines = ReadRegion(frame, settings.Chat, "chat", false, directory, false, 0, PageSegMode.SingleLine, false, true) });
+        foreach (var (name, region) in new[] { ("chat", settings.Chat), ("loot", settings.Loot) })
+        foreach (var threshold in new[] { 0, 100, 150, 180 })
+        foreach (var mode in new[] { PageSegMode.SingleLine, PageSegMode.SingleBlock, PageSegMode.SparseText })
+        foreach (var gray in new[] { false, true })
+        {
+            var lines = ReadRegion(frame, region, name, true, null, false, threshold, mode, gray);
+            results.Add(new { name, threshold, mode = mode.ToString(), gray, lines });
+        }
         foreach (var (name, region) in new[] { ("level", settings.Level), ("exp", settings.Experience) })
         {
             using var crop = WindowCapture.Crop(frame, region);
@@ -146,15 +201,22 @@ public sealed class OcrReader : IDisposable
         File.WriteAllText(Path.Combine(directory, "probe.json"), JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    private static unsafe Bitmap Prepare(Bitmap image, bool whiteText, int threshold)
+    private static unsafe Bitmap Prepare(Bitmap image, bool whiteText, int threshold, bool grayscale = false, bool banner = false)
     {
+        var background = banner ? BannerBackground(image) : null;
+        grayscale |= background is { } color && color.B > color.G * .5;
         var output = new Bitmap(image.Width * 3 + 24, image.Height * 3 + 24, PixelFormat.Format24bppRgb);
         using (var g = Graphics.FromImage(output))
         {
-            g.Clear(System.Drawing.Color.Black);
+            g.Clear(grayscale || background != null ? System.Drawing.Color.White : System.Drawing.Color.Black);
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
             g.DrawImage(image, new Rectangle(12, 12, image.Width * 3, image.Height * 3));
+            if (background is { } fill && FindChannelBadge(image) is { } badge)
+            {
+                using var brush = new SolidBrush(fill);
+                g.FillRectangle(brush, 12 + badge.X * 3, 12, badge.Width * 3, image.Height * 3);
+            }
         }
         var data = output.LockBits(new Rectangle(0, 0, output.Width, output.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
         try
@@ -165,7 +227,21 @@ public sealed class OcrReader : IDisposable
                 for (var x = 0; x < output.Width; x++)
                 {
                     var p = row + x * 3;
-                    if (whiteText)
+                    if (!grayscale && background is { } bg)
+                    {
+                        var max = Math.Max(p[0], Math.Max(p[1], p[2]));
+                        // Dark banner text and white item links need the same ink color.
+                        // Ignore the black outside border and the gold/pink fill.
+                        var ink = x >= 24 && y >= 21 && x < output.Width - 24 && y < output.Height - 24 &&
+                            (max >= 35 && p[2] < bg.R - 45 && p[1] < bg.G - 35 ||
+                             p[1] > bg.G + 35 && p[0] > bg.B + 60);
+                        p[0] = p[1] = p[2] = (byte)(ink ? 0 : 255);
+                    }
+                    else if (grayscale)
+                    {
+                        p[0] = p[1] = p[2] = (byte)((p[2] * 299 + p[1] * 587 + p[0] * 114) / 1000);
+                    }
+                    else if (whiteText)
                     {
                         var min = Math.Min(p[0], Math.Min(p[1], p[2]));
                         var max = Math.Max(p[0], Math.Max(p[1], p[2]));
@@ -178,6 +254,40 @@ public sealed class OcrReader : IDisposable
         }
         finally { output.UnlockBits(data); }
         return output;
+    }
+    private static System.Drawing.Color? BannerBackground(Bitmap image)
+    {
+        var buckets = new Dictionary<int, (int Count, System.Drawing.Color Color)>();
+        for (int y = 2; y < image.Height - 2; y += 2)
+        for (int x = 2; x < image.Width - 2; x += 3)
+        {
+            var p = image.GetPixel(x, y);
+            int key = (p.R / 16 << 8) | (p.G / 16 << 4) | p.B / 16;
+            var value = buckets.GetValueOrDefault(key); buckets[key] = (value.Count + 1, p);
+        }
+        if (buckets.Count == 0) return null;
+        var most = buckets.Values.MaxBy(v => v.Count);
+        var c = most.Color;
+        return most.Count > image.Width * image.Height / 6.0 * .2 && c.R > 120 && c.G > 70 &&
+            Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) > 30 ? c : null;
+    }
+    private static Rectangle? FindChannelBadge(Bitmap image)
+    {
+        for (int y = 2; y < image.Height / 2; y++)
+        {
+            int start = -1;
+            for (int x = 15; x < image.Width / 3; x++)
+            {
+                var p = image.GetPixel(x, y);
+                if (p.R > 210 && p.G > 185 && p.B > 150) { if (start < 0) start = x; }
+                else
+                {
+                    if (start >= 0 && x - start >= 20) return new Rectangle(start - 2, 0, x - start + 4, image.Height);
+                    start = -1;
+                }
+            }
+        }
+        return null;
     }
     public void Dispose() => engine.Dispose();
 }

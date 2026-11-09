@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows;
@@ -34,6 +35,8 @@ internal static class Program
             CheckNotificationQueue();
             CheckModernShell();
             CheckScreenshotOcr();
+            CheckLootPasses();
+            CheckGameplayFrames();
             Console.WriteLine($"\n{passed} WPF regression checks passed.");
             return 0;
         }
@@ -77,6 +80,7 @@ internal static class Program
         var picker = (ComboBox)dialog.FindName("WindowPicker");
         picker.ItemsSource = new[] { target }; picker.SelectedItem = target;
         ((TextBox)dialog.FindName("BuyingTerms")).Text = "WTB, purchase";
+        ((CheckBox)dialog.FindName("HistoryOnly")).IsChecked = true;
         dialog.Loaded += async (_, _) =>
         {
             try
@@ -104,11 +108,13 @@ internal static class Program
             Check(result == save, save ? "Save returns true after snapshot without DialogResult exception" : "cancel returns false after snapshot");
             Check(controller.Target == (save ? target : null), "target applied only on Save");
             Check(settings.BuyingTerms[0] == (save ? "WTB" : "Buying"), "edited settings applied only on Save");
+            Check(settings.ChatHistoryOnly == save, "history-only capture preference applied only on Save");
             if (save)
             {
                 var store = new SettingsStore(); store.Save(settings);
                 var loaded = store.Load();
                 Check(loaded.WindowTitle == target.Title && loaded.BuyingTerms[1] == "purchase", "saved setup survives a settings round trip");
+                Check(loaded.ChatHistoryOnly, "history-only capture preference survives restart");
             }
         }
         finally
@@ -205,6 +211,47 @@ internal static class Program
             using var image = new Bitmap(path);
             var frame = reader.Read(image, new TrackerSettings());
             Check(frame.Hud == new HudReading(27, expected), $"screenshot OCR validates level 27 and EXP {expected:N0}");
+            if (expected == 55187)
+                Check(frame.LootLines.Any(line => TextParsing.Mesos(line.Text) == 47), "contrast fallback recovers the visible +47 meso notification");
+        }
+    }
+
+    private static void CheckLootPasses()
+    {
+        var lines = OcrReader.SelectLootLines(
+            [new("You have gained mesos (+47)", .6, .2, 61)],
+            [new("You have gained mesos (+9)", .61, .2, 58), new("Leaf x1 earned.", .2, .2, 75)]);
+        Check(lines.Length == 2 && TextParsing.Mesos(lines[1].Text) == 47, "alternate OCR passes cannot add a second amount for the same notification row");
+        var feed = new LootFeedTracker();
+        Check(feed.Update(lines, TimeSpan.Zero).Count == 0, "two OCR passes do not satisfy two-frame loot confirmation");
+        Check(feed.Update(lines, TimeSpan.FromSeconds(.5)).Count == 2, "separate readable frames confirm each pickup exactly once");
+        Check(feed.Update(lines, TimeSpan.FromSeconds(1)).Count == 0, "stable loot does not repeat after contrast fallback");
+    }
+
+    private static void CheckGameplayFrames()
+    {
+        var directory = Environment.GetEnvironmentVariable("MAPLETRACKER_GAMEPLAY_FIXTURES");
+        if (string.IsNullOrEmpty(directory)) return;
+        var settings = System.Text.Json.JsonSerializer.Deserialize<TrackerSettings>(System.IO.File.ReadAllText(System.IO.Path.Combine(directory, "tight-settings.json")))!;
+        settings.ChatHistoryOnly = true;
+        var table = ExperienceTable.Load(System.IO.Path.Combine(SettingsStore.DataDirectory, "exp-table.json"));
+        using var reader = new OcrReader(table);
+        foreach (var (suffix, exp) in new[] { ("-2", 32255L), ("-4", 32263L), ("-5", 32263L) })
+        {
+            using var image = new Bitmap(System.IO.Path.Combine(directory, $"ocr-game-client{suffix}.png"));
+            var frame = reader.Read(image, settings);
+            Check(frame.Hud == new HudReading(28, exp), "gameplay frame preserves validated HUD " + suffix);
+            Check(frame.Chat.Length > 0, "history row produces chat on gameplay frame " + suffix);
+            if (suffix == "-2")
+                Check(frame.Chat.Any(line => new TradeClassifier(settings).Classify(line).HasFlag(MessageKind.Selling) && line.Contains("Earring", StringComparison.OrdinalIgnoreCase)), "yellow market banner retains selling intent and the linked item");
+            if (suffix == "-4")
+                Check(frame.Chat.Any(line => line.Contains("sit", StringComparison.OrdinalIgnoreCase)), "white history chat remains readable over scenery");
+            if (suffix == "-5")
+            {
+                var matcher = new TradeAlertMatcher(new TrackerSettings { SellingItems = ["Fairy wings"] });
+                var alerts = frame.Chat.SelectMany(line => matcher.Match(line, DateTimeOffset.Now)).ToArray();
+                Check(alerts.Length == 1 && alerts[0].Player == "Gibs", "pink banner OCR reaches the item alert matcher with the sender and buying intent");
+            }
         }
     }
 

@@ -131,12 +131,12 @@ public sealed class TrackerController
             });
             if (version != generation || !Running) return;
             if (WindowCapture.GetForegroundWindow() != target.Handle || WindowCapture.RegionsCovered(target.Handle, Settings)) { SuspendStatisticsClock(); return; }
-            foreach (var line in chatLines.Update(frame.Chat)) AddChat(line);
+            foreach (var line in chatLines.Update(frame.Chat, Settings.ChatHistoryOnly)) AddChat(line);
             foreach (var line in lootLines.Update(frame.LootLines, notificationClock.Elapsed)) AddLoot(line, statsVersion == statisticsGeneration);
             if (statsVersion == statisticsGeneration) AcceptHud(frame.Hud);
             DiagnosticsText = $"{HudStatus}\nLEVEL  {frame.LevelText}\nEXP attempts\n{string.Join('\n', frame.HudCandidates.Select(c => c.Text))}\n\nLOOT\n{string.Join('\n', frame.Loot)}\n\nCHAT · {chatLines.IgnoredLines} draft/unverified lines ignored\n{string.Join('\n', frame.Chat)}";
-            WriteRecognitionDiagnostics(frame);
             Status = (frame.Hud == null ? "Reading · EXP unreadable; check regions in Setup" : "Live · " + target.Title) + (journalWarning == null ? "" : " · " + journalWarning);
+            WriteRecognitionDiagnostics(frame);
         }
         catch (Exception ex)
         {
@@ -172,7 +172,8 @@ public sealed class TrackerController
             Directory.CreateDirectory(SettingsStore.DataDirectory);
             File.WriteAllText(Path.Combine(SettingsStore.DataDirectory, "recognition-last.json"), JsonSerializer.Serialize(new
             {
-                Time = DateTimeOffset.Now, LastConfirmedHud = lastHudAt, Frame = frame, Snapshot
+                Time = DateTimeOffset.Now, Running, StatisticsRunning, Status, Settings.ChatHistoryOnly,
+                IgnoredChatLines = chatLines.IgnoredLines, LastConfirmedHud = lastHudAt, Frame = frame, Snapshot
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }

@@ -11,6 +11,8 @@
         <RadioButton x:Name="LootRadio" Content="2   Loot notifications" GroupName="Region" Foreground="#E1BC70" Margin="0,8" Checked="RegionChanged"/>
         <RadioButton x:Name="LevelRadio" Content="3   Level number" GroupName="Region" Foreground="#F07961" Margin="0,8" Checked="RegionChanged"/>
         <RadioButton x:Name="ExpRadio" Content="4   EXP number + %" GroupName="Region" Foreground="#C7D66A" Margin="0,8" Checked="RegionChanged"/>
+        <CheckBox x:Name="HistoryOnly" Content="Chat history only" Margin="0,14,0,0" ToolTip="Select only received messages above the typing field. Allows system messages and channel banners."/>
+        <TextBlock Text="Exclude the typing field. For one history row, leave just a few pixels of padding above and below it." TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,8,0,0"/>
         <TextBlock x:Name="RegionInfo" Foreground="{StaticResource Muted}" FontSize="11" LineHeight="18" Margin="0,18,0,0"/>
         <Button Content="Test recognition" Click="TestClick" Margin="0,18,0,0"/>
         <TextBlock Text="Draw a tight box around the text, with a little padding. Include every chat or loot line you want to keep." Foreground="#7589A0" FontSize="11" LineHeight="17" Margin="0,15,0,0"/>

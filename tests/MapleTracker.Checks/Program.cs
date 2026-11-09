@@ -165,4 +165,9 @@ Check(!ChatFeedTracker.IsPublishedMessage("Buying Steel Ore: 500 each"), "draft 
 Check(!ChatFeedTracker.IsPublishedMessage("Alice:"), "empty message body is not complete chat");
 chatFeed.Reset();
 Check(chatFeed.Update(["mach0: J > PQ@@@@@"]).Count == 1, "capture reset clears published chat history");
+chatFeed.Reset();
+Check(chatFeed.Update(["DnjStudio have left the party."], historyOnly: true).Count == 1, "history-only region accepts system messages without a sender colon");
+Check(chatFeed.Update(["DnjStudio have left the party."], historyOnly: true).Count == 0, "history-only system messages are deduplicated");
+Check(chatFeed.Update(["Gibs B>Fairy wings"], historyOnly: true).Count == 1, "history-only region retains banners with an unreadable separator");
+Check(chatFeed.Update(["All: my unfinished draft"]).Count == 0, "shared-bar draft protection remains enabled by default");
 Console.WriteLine($"\n{passed} checks passed.");

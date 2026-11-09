@@ -23,10 +23,12 @@ public sealed class ChatFeedTracker
         return !InputChannels.Contains(name);
     }
 
-    public IReadOnlyList<string> Update(IEnumerable<string> observed)
+    public IReadOnlyList<string> Update(IEnumerable<string> observed, bool historyOnly = false)
     {
         var raw = observed.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
-        var valid = raw.Where(IsPublishedMessage).ToArray();
+        // A separately selected history region never contains the draft input.
+        // System messages and channel banners need not have a readable sender colon.
+        var valid = raw.Where(line => historyOnly ? line.Length >= 4 && line.Any(char.IsLetter) : IsPublishedMessage(line)).ToArray();
         IgnoredLines = raw.Length - valid.Length;
         // Drafts and OCR blanks must not clear the previously received message.
         return valid.Length == 0 ? [] : publishedLines.Update(valid);
