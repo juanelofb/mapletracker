@@ -28,7 +28,7 @@
     </Grid>
     <Grid Grid.Row="4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <TextBlock x:Name="SetupStatus" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" Text="Default regions match your original screenshot; recalibrate for another layout."/>
-      <Button Grid.Column="1" Content="Cancel" IsCancel="True"/><Button Grid.Column="2" Content="Save setup" Background="#DF755E" Foreground="#111722" FontWeight="SemiBold" Click="SaveClick" Margin="0"/>
+      <Button Grid.Column="1" Content="Cancel" IsCancel="True"/><Button x:Name="SaveButton" Grid.Column="2" Content="Save setup" Background="#DF755E" Foreground="#111722" FontWeight="SemiBold" Click="SaveClick" Margin="0"/>
     </Grid>
   </Grid>
 </Window>

@@ -15,13 +15,17 @@ public partial class SetupWindow : Window
 {
     private readonly TrackerController controller;
     private readonly TrackerSettings draft;
+    private readonly Func<nint, Task<Bitmap>> captureSnapshot;
     private Bitmap? reference;
     private Point? dragStart;
     private CaptureRegion? dragging;
     private bool working;
-    public SetupWindow(TrackerController controller)
+    public SetupWindow(TrackerController controller) : this(controller, CaptureGameSnapshotAsync) { }
+
+    internal SetupWindow(TrackerController controller, Func<nint, Task<Bitmap>> captureSnapshot)
     {
         this.controller = controller;
+        this.captureSnapshot = captureSnapshot;
         draft = JsonSerializer.Deserialize<TrackerSettings>(JsonSerializer.Serialize(controller.Settings))!;
         InitializeComponent();
         BuyingTerms.Text = string.Join(", ", draft.BuyingTerms); SellingTerms.Text = string.Join(", ", draft.SellingTerms); OpacitySlider.Value = draft.Opacity;
@@ -36,28 +40,36 @@ public partial class SetupWindow : Window
             ?? windows.FirstOrDefault(w => w.Title == draft.WindowTitle);
     }
     private void RefreshClick(object sender, RoutedEventArgs e) => RefreshWindows();
-    private async void SnapshotClick(object sender, RoutedEventArgs e)
+    private async void SnapshotClick(object sender, RoutedEventArgs e) => await TakeSnapshotAsync();
+
+    internal async Task TakeSnapshotAsync()
     {
+        if (working) return;
         if (WindowPicker.SelectedItem is not GameWindow target) { SetupStatus.Text = "Choose the game window first."; return; }
-        var windows = System.Windows.Application.Current.Windows.Cast<Window>().Where(w => w.IsVisible).ToArray();
         working = true;
         try
         {
-            foreach (var w in windows) w.Hide();
-            WindowCapture.SetForegroundWindow(target.Handle);
-            await Task.Delay(650);
-            if (WindowCapture.GetForegroundWindow() != target.Handle) throw new InvalidOperationException("Could not focus the game. Focus it manually, then try again.");
-            SetReference(WindowCapture.Capture(target.Handle));
+            using var suppressed = new SnapshotWindowScope(System.Windows.Application.Current.Windows.Cast<Window>());
+            SetReference(await captureSnapshot(target.Handle));
             SetupStatus.Text = "Snapshot ready. Choose each region and drag a box around its text.";
         }
         catch (Exception ex) { SetupStatus.Text = ex.Message; }
         finally
         {
-            foreach (var w in windows) w.Show(); Activate(); working = false;
+            working = false;
+            Activate();
         }
+    }
+    private static async Task<Bitmap> CaptureGameSnapshotAsync(nint handle)
+    {
+        WindowCapture.SetForegroundWindow(handle);
+        await Task.Delay(650);
+        if (WindowCapture.GetForegroundWindow() != handle) throw new InvalidOperationException("Could not focus the game. Focus it manually, then try again.");
+        return WindowCapture.Capture(handle);
     }
     private void LoadClick(object sender, RoutedEventArgs e)
     {
+        if (working) return;
         var dialog = new OpenFileDialog { Filter = "Screenshots|*.png;*.jpg;*.jpeg;*.bmp" };
         if (dialog.ShowDialog(this) != true) return;
         try { SetReference(new Bitmap(dialog.FileName)); SetupStatus.Text = "Image loaded. Regions must match the game's client area, without window borders."; }
@@ -137,6 +149,7 @@ public partial class SetupWindow : Window
     }
     private void SaveClick(object sender, RoutedEventArgs e)
     {
+        if (working) return;
         if (WindowPicker.SelectedItem is not GameWindow target) { SetupStatus.Text = "Choose a game window before saving."; return; }
         var s = controller.Settings;
         bool changedSource = controller.Target?.Handle != target.Handle;

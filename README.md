@@ -14,7 +14,7 @@ Build with the .NET 9 SDK:
 The English Tesseract model is included. The script can download it again if missing. OCR runs locally; the running app has no network service or API key. Native Tesseract dependencies may require the Microsoft Visual C++ 2015–2022 x64 runtime on another PC.
 
 1. Run the game in windowed or borderless mode.
-2. Open **Setup**, choose the game window, and **Take snapshot**. Tracker windows briefly hide while the game is captured.
+2. Open **Setup**, choose the game window, and **Take snapshot**. Tracker windows briefly become transparent while the game is captured; the setup dialog stays open until you save or cancel.
 3. Choose each colored region and drag a tight box around **chat messages**, **loot notifications**, **level number**, and **EXP number plus percentage**. Include text, not just the colored EXP bar. Defaults match the original 1908×1080 reference image.
 4. Use **Test recognition** to review the text. Fix the regions if needed, then **Save setup**.
 5. Move both tracker windows away from the capture regions. Press **Start capture** and focus the game.
@@ -54,9 +54,11 @@ Settings and session data live beside the executable in `data/`. Use a writable 
 - `src/MapleTracker.Core` — trade matching, OCR text parsers, ordered line tracking, EXP table and session math.
 - `src/MapleTracker.App` — WPF UI, Win32 screen capture, local Tesseract OCR, settings and logs.
 - `tests/MapleTracker.Checks` — deterministic checks of rollover, losses, ETA, duplicate handling, parsers, categories and table totals.
+- `tests/MapleTracker.AppChecks` — WPF regression checks of snapshot → Save, repeated snapshots, cancellation, capture failure, and persisted setup. These use a synthetic capture source and briefly open test windows.
 
 ```powershell
 dotnet run --project tests/MapleTracker.Checks
+dotnet run --project tests/MapleTracker.AppChecks
 dotnet run --project src/MapleTracker.App
 ```
 

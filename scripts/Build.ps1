@@ -8,6 +8,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
     dotnet run --project tests/MapleTracker.Checks -c Release --no-build
     if ($LASTEXITCODE -ne 0) { throw 'Checks failed.' }
+    dotnet run --project tests/MapleTracker.AppChecks -c Release --no-build
+    if ($LASTEXITCODE -ne 0) { throw 'WPF regression checks failed.' }
     if ($Publish) {
         dotnet publish src/MapleTracker.App -c Release -r win-x64 --self-contained false -o artifacts/MapleTracker
         if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
