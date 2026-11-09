@@ -2,6 +2,8 @@
 
 MapleTracker is a Windows companion for MapleStory. It reads visible game text and puts chat, market messages, picked-up items, and training statistics in movable windows beside the game. It does not send chat, control your character, or read game memory.
 
+MapleTracker works best while farming in quieter maps. Crowded maps with lots of people and rapid chat spam can make recognition less reliable, causing missed or misread messages and alerts.
+
 ## Start here
 
 1. Run MapleTracker.exe. The Windows x64 release includes its runtime, OCR engine, English recognition model, and EXP table. You do not need to install .NET or keep library/model files beside the EXE.
@@ -19,6 +21,10 @@ Saving a different capture source or different regions begins a new displayed se
 Typing in-game can replace the received message with your draft, causing missed or incorrect captures. MapleTracker shows this reminder in white-bar mode. It cannot recover messages hidden by the game while you type.
 
 ## Chat window
+
+<!-- screenshots:start -->
+![MapleTracker chat window showing captured messages, category tabs, search, and capture controls](docs/screenshots/chat.png)
+<!-- screenshots:end -->
 
 - All: recognized incoming chat messages. Pickup notifications have their own Items tab.
 - Buying: messages recognized as someone wanting to buy something.
@@ -53,9 +59,19 @@ Matching ignores case. Words use boundaries: buy does not automatically match bu
 
 These same terms determine the trade direction used by item alerts. They describe what other players are doing; your personal buying and selling lists are separate.
 
+<!-- screenshots:start -->
+| Buying tab | Selling tab |
+| --- | --- |
+| ![Buying tab filtering messages from players who want to buy items](docs/screenshots/buying.png) | ![Selling tab filtering messages from players offering items for sale](docs/screenshots/selling.png) |
+<!-- screenshots:end -->
+
 ## Watch items you want to buy or sell
 
 Click Item alerts and open My lists. Put one item per line, then Save lists. Cancel discards your edits.
+
+<!-- screenshots:start -->
+![Item alert watchlists with separate I want to buy and I want to sell lists, popup toggle, and alert history](docs/screenshots/item-alerts.png)
+<!-- screenshots:end -->
 
 I WANT TO BUY looks for sellers. If you add Steel Ore, Alice: S> Steel Ore can trigger Alice is selling Steel Ore.
 
@@ -82,6 +98,10 @@ Alert history retains up to 200 matches for the current session. Restarting the 
 
 The Items tab reads item pickup notifications near the bottom-right of the game. It shows a timestamped pickup feed, the total quantity picked up, and totals grouped by recognized item name.
 
+<!-- screenshots:start -->
+![Items tab showing pickup totals by item name and a timestamped loot feed](docs/screenshots/items.png)
+<!-- screenshots:end -->
+
 It tracks what was picked up, not everything currently in your inventory. It does not subtract items you use, sell, trade, or drop. The in-game notification can shorten a name with dots; MapleTracker cannot recover the hidden part. OCR spelling variants can split one item into multiple displayed types.
 
 Two readable frames must agree on a quantity before counting it. Fade tracking reduces repeated counts from lingering notifications, but very brief, obscured, or badly read notifications can still be missed or counted incorrectly.
@@ -89,6 +109,10 @@ Two readable frames must agree on a quantity before counting it. Fade tracking r
 ## EXP, meso, and time to level
 
 Statistics is a separate movable window with independent Start, Stop, and Reset controls.
+
+<!-- screenshots:start -->
+![Statistics window showing level progress, time to next level, EXP and meso rates, session totals, and independent transparency](docs/screenshots/statistics.png)
+<!-- screenshots:end -->
 
 - Start: resume statistics from your current EXP. Gains while statistics were stopped are excluded. Chat capture and trade alerts have their own capture controls.
 - Stop: freeze EXP/meso totals and active time while chat, item tracking, and alerts can continue.
@@ -120,6 +144,7 @@ Chat history only is an optional alternative for a separate received-message reg
 - No new text: start capture, focus the game, and uncover every selected region.
 - Typing hides incoming messages: this is a limitation of the shared white bar. Finish typing or pause capture until you finish.
 - Missing or garbled text: take a fresh Setup snapshot, tighten the boxes, and test recognition. Try Balanced or High on the same snapshot to compare. Include all loot rows and the full EXP number plus percentage.
+- Crowded maps or chat spam: fast messages can disappear before a capture, and busy backgrounds can interfere with OCR. Quieter farming maps usually give more reliable results.
 - Stale EXP: check the confirmation age and Recognition details. A displayed value may be old; redraw the level and EXP boxes if necessary.
 - No item alert: check the buying/selling direction, your custom tags, item aliases, popup switch, and Alert history. Repeated matches may be in the 60-second cooldown.
 - Repeated or incorrect items/meso: check the notification region and compare totals with gameplay. OCR-derived totals are estimates, not an inventory or accounting record.

@@ -15,8 +15,13 @@ public partial class HelpWindow : Window
     private void ShowText(string text)
     {
         Document.Children.Clear();
+        bool screenshots = false;
         foreach (var original in text.Replace("\r", "").Split('\n'))
         {
+            // Repository screenshots remain optional; the standalone guide needs no image files.
+            if (original == "<!-- screenshots:start -->") { screenshots = true; continue; }
+            if (original == "<!-- screenshots:end -->") { screenshots = false; continue; }
+            if (screenshots) continue;
             var line = original;
             bool title = line.StartsWith("# "), heading = line.StartsWith("## "), code = line.StartsWith("    ");
             if (title) line = line[2..]; else if (heading) line = line[3..]; else if (code) line = line[4..];
