@@ -36,6 +36,10 @@ public sealed class SettingsStore
             value.StatisticsOpacity = double.IsFinite(value.StatisticsOpacity) ? Math.Clamp(value.StatisticsOpacity, .4, 1) : .9;
             value.BuyingItems ??= [];
             value.SellingItems ??= [];
+            if (value.Loot == new CaptureRegion(.85, .75, .15, .06)) value.Loot = new TrackerSettings().Loot;
+            if (value.Map == null || !value.Map.IsValid) { value.Map = new TrackerSettings().Map; value.AutoMapRegion = true; }
+            value.MapItemHints ??= [];
+            value.MapItemHints = value.MapItemHints.Where(p => p.Value != null).ToDictionary(p => p.Key, p => p.Value);
             return value;
         }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)

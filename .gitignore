@@ -7,3 +7,5 @@ artifacts/
 data/settings.json
 data/sessions/
 *.log
+experiments/ocr/
+**/__pycache__/

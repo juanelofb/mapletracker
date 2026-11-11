@@ -33,6 +33,7 @@ public partial class StatsWindow : Window
     public void RememberBounds() { if (WindowState != WindowState.Normal) return; var s = controller.Settings; s.StatsLeft = Left; s.StatsTop = Top; s.StatsWidth = Width; s.StatsHeight = Height; }
     public void Refresh()
     {
+        MapTitle.Text = controller.MapTitle; MapTitle.ToolTip = controller.MapInfo;
         var s = controller.Snapshot; Mode.Text = !controller.StatisticsRunning ? "STOPPED" : controller.Running ? "RUNNING" : "CAPTURE PAUSED";
         StatsStartButton.IsEnabled = !controller.StatisticsRunning || !controller.Running;
         StatsStopButton.IsEnabled = controller.StatisticsRunning;
@@ -48,7 +49,7 @@ public partial class StatsWindow : Window
         XpHour.Text = Compact(s.ExperiencePerMinute * 60); XpMinute.Text = $"{s.ExperiencePerMinute:N0} / min";
         MesoHour.Text = Compact(s.MesosPerMinute * 60); MesoMinute.Text = $"{s.MesosPerMinute:N0} / min";
         TotalsText.Text = $"EXP gained    {s.GainedExperience:N0}\nMeso looted   {s.Mesos:N0}\nSession avg   {s.ExperiencePerMinute:N0} EXP / min";
-        ActiveText.Text = "Active capture    " + FormatDuration(s.ActiveTime); Diagnostics.Text = controller.DiagnosticsText;
+        ActiveText.Text = "Active capture    " + FormatDuration(s.ActiveTime);
     }
     private static string Compact(double v) => Math.Abs(v) >= 1e9 ? $"{v / 1e9:0.##}B" : Math.Abs(v) >= 1e6 ? $"{v / 1e6:0.##}M" : Math.Abs(v) >= 1e3 ? $"{v / 1e3:0.#}K" : $"{v:N0}";
     private static string FormatDuration(TimeSpan value) => value.TotalDays >= 1 ? $"{(int)value.TotalDays}d {value.Hours}h {value.Minutes}m" : value.TotalHours >= 1 ? $"{(int)value.TotalHours}h {value.Minutes}m" : $"{value.Minutes}m {value.Seconds}s";

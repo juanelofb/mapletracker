@@ -14,30 +14,37 @@ public sealed record RecognitionFrame(string[] Chat, string[] Loot, string Level
     public HudCandidate[] HudCandidates { get; init; } = [];
     public double OcrMilliseconds { get; init; }
     public int ChatPasses { get; init; }
+    public string[] MapText { get; init; } = [];
+    public MapReading? Map { get; init; }
 }
 
 public sealed partial class OcrReader : IDisposable
 {
     private readonly TesseractEngine engine;
     private readonly ExperienceTable table;
-    public OcrReader(ExperienceTable table)
+    private readonly string? experimentalModelDirectory;
+    private readonly string? experimentalFallbackDirectory;
+    private TesseractEngine? experimentalChatEngine;
+    private TesseractEngine? experimentalFallbackEngine;
+    public OcrReader(ExperienceTable table, string? experimentalModelDirectory = null, string? experimentalFallbackDirectory = null)
     {
         this.table = table;
+        this.experimentalModelDirectory = experimentalModelDirectory;
+        this.experimentalFallbackDirectory = experimentalFallbackDirectory;
         RuntimeAssets.PrepareNativeOcr();
         var data = RuntimeAssets.OcrDataDirectory;
         engine = new TesseractEngine(data, "eng", EngineMode.LstmOnly);
         engine.SetVariable("user_defined_dpi", "240");
     }
 
-    public RecognitionFrame Read(Bitmap frame, TrackerSettings settings, string? diagnostics = null)
+    public RecognitionFrame Read(Bitmap frame, TrackerSettings settings, string? diagnostics = null, GameCatalog? catalog = null)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
         chatPasses = 0;
         var chat = ReadChat(frame, settings, diagnostics);
-        var clearLoot = ReadRegion(frame, settings.Loot, "loot", true, diagnostics, thresholdOverride: 100);
-        var fadedLoot = ReadRegion(frame, settings.Loot, "loot-faded", true, diagnostics, thresholdOverride: 45);
-        var lootLines = SelectLootLines(clearLoot, fadedLoot);
+        var lootLines = ReadLoot(frame, settings.Loot, diagnostics);
         var loot = lootLines.Select(line => line.Text).ToArray();
+        var map = ReadMap(frame, settings, diagnostics, catalog ?? RuntimeAssets.WorldCatalog);
         var level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true));
         if (!int.TryParse(level, out var numericLevel) || numericLevel is < 1 or > 100)
             level = string.Join(" ", Region(frame, settings.Level, "level", false, diagnostics, true, 100, PageSegMode.SingleLine));
@@ -60,7 +67,7 @@ public sealed partial class OcrReader : IDisposable
             if (hud != null) break;
         }
         hud ??= HudConsensus.Read(level, candidates, table);
-        var result = new RecognitionFrame(chat, loot, level, exp, hud) { LootLines = lootLines, HudCandidates = candidates.ToArray(), OcrMilliseconds = clock.Elapsed.TotalMilliseconds, ChatPasses = chatPasses };
+        var result = new RecognitionFrame(chat, loot, level, exp, hud) { LootLines = lootLines, HudCandidates = candidates.ToArray(), OcrMilliseconds = clock.Elapsed.TotalMilliseconds, ChatPasses = chatPasses, Map = map.Match, MapText = map.Text };
         if (diagnostics != null)
         {
             File.WriteAllText(Path.Combine(diagnostics, "recognition.json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
@@ -244,5 +251,5 @@ public sealed partial class OcrReader : IDisposable
         return most.Count > image.Width * image.Height / 6.0 * .2 && Math.Max(c.R, Math.Max(c.G, c.B)) > 110 &&
             Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) > 30 ? c : null;
     }
-    public void Dispose() => engine.Dispose();
+    public void Dispose() { experimentalFallbackEngine?.Dispose(); experimentalChatEngine?.Dispose(); engine.Dispose(); }
 }

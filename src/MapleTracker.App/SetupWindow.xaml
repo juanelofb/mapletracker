@@ -11,7 +11,10 @@
         <RadioButton x:Name="LootRadio" Content="2   Loot notifications" GroupName="Region" Foreground="#E1BC70" Margin="0,8" Checked="RegionChanged"/>
         <RadioButton x:Name="LevelRadio" Content="3   Level number" GroupName="Region" Foreground="#F07961" Margin="0,8" Checked="RegionChanged"/>
         <RadioButton x:Name="ExpRadio" Content="4   EXP number + %" GroupName="Region" Foreground="#C7D66A" Margin="0,8" Checked="RegionChanged"/>
-        <CheckBox x:Name="HistoryOnly" Content="Chat history only" Margin="0,14,0,0" ToolTip="Select only received messages above the typing field. Allows system messages and channel banners."/>
+        <RadioButton x:Name="MapRadio" Content="5   Map title" GroupName="Region" Foreground="#A8B9FF" Margin="0,8" Checked="RegionChanged"/>
+        <Button Content="Auto detect map title" Click="AutoMapClick" Margin="0,8,0,0"/>
+        <TextBlock Text="Auto follows the minimap header in the top left. For a custom layout, select Map title and draw around both name lines." TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,8,0,0"/>
+        <CheckBox x:Name="HistoryOnly" Content="Chat history only" Margin="0,14,0,0" Checked="HistoryModeChanged" Unchecked="HistoryModeChanged" ToolTip="Select only received messages above the typing field. Allows system messages and channel banners."/>
         <Button Content="Use white chat bar" Click="WhiteBarClick" Margin="0,8,0,0" ToolTip="Select the compact white bar and disable history-only mode."/>
         <TextBlock Text="White bar: collapse in-game chat to one bar. Typing can hide messages and cause missed or incorrect captures. For history-only capture, exclude the typing field." TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,8,0,0"/>
         <TextBlock x:Name="RegionInfo" Foreground="{StaticResource Muted}" FontSize="11" LineHeight="18" Margin="0,18,0,0"/>
@@ -28,6 +31,7 @@
       <StackPanel Margin="0,0,14,0"><TextBlock Text="RECOGNITION QUALITY" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,0,0,7"/>
         <ComboBox x:Name="QualityPicker" Foreground="Black" SelectionChanged="QualityChanged" AutomationProperties.Name="Recognition quality"/>
         <CheckBox x:Name="OmitBadges" Content="Omit channel / ear badges" Margin="0,8,0,0"/>
+        <CheckBox x:Name="ExperimentalFont" Content="Experimental Maple font" Visibility="Collapsed" Margin="0,8,0,0" ToolTip="Preview reader for the compact chat bar at 1920×1080. Uses extra OCR passes and falls back on less confident text. Prices and names can still be misread. Loot and EXP use the regular reader."/>
       </StackPanel>
       <StackPanel Grid.Column="1"><TextBlock x:Name="QualityDescription" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap"/>
         <TextBlock x:Name="ResourceUsage" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,7,0,0"/>

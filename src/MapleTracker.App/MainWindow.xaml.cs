@@ -13,7 +13,7 @@ public partial class MainWindow : Window
     private readonly TradeNotificationPresenter notifications;
     private bool shuttingDown;
     private bool allowClose;
-    private long itemCount = -1;
+    private int itemRevision = -1;
     public MainWindow(TrackerController controller, SettingsStore store)
     {
         this.controller = controller; this.store = store; InitializeComponent();
@@ -51,9 +51,9 @@ public partial class MainWindow : Window
         TypingNotice.Visibility = controller.Settings.ChatHistoryOnly ? Visibility.Collapsed : Visibility.Visible;
         EmptyState.Visibility = controller.Entries.Any(e => e.Kind != MessageKind.Item) ? Visibility.Collapsed : Visibility.Visible;
         var count = controller.Items.Values.Sum();
-        if (itemCount != count)
+        if (itemRevision != controller.ItemsRevision)
         {
-            itemCount = count; LootTotals.ItemsSource = controller.Items.OrderByDescending(x => x.Value).ThenBy(x => x.Key).ToArray();
+            itemRevision = controller.ItemsRevision; LootTotals.ItemsSource = controller.Items.OrderByDescending(x => x.Value).ThenBy(x => x.Key).ToArray();
             LootHeading.Text = $"{count:N0} items picked up · {controller.Items.Count:N0} types";
         }
         stats?.Refresh();

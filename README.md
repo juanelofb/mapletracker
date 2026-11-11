@@ -1,6 +1,8 @@
-# MapleTracker 1.0
+# MapleTracker
 
-MapleTracker is a Windows companion for MapleStory. It reads visible game text and puts chat, market messages, picked-up items, and training statistics in movable windows beside the game. It does not send chat, control your character, or read game memory.
+MapleTracker is a free Windows companion for MapleStory Classic World. It reads visible game text and puts chat, market messages, picked-up items, and training statistics in movable windows beside the game. It does not send chat, control your character, or read game memory.
+
+Download the standalone Windows x64 executable from [MapleTracker 1.1](https://github.com/juanelofb/mapletracker/releases/tag/v1.1.0). You can run it without creating an account.
 
 MapleTracker works best while farming in quieter maps. Crowded maps with lots of people and rapid chat spam can make recognition less reliable, causing missed or misread messages and alerts.
 
@@ -10,11 +12,12 @@ If you'd like to support my projects, you can [leave a tip on Ko-fi](https://ko-
 
 ## Start here
 
-1. Run MapleTracker.exe. The Windows x64 release includes its runtime, OCR engine, English recognition model, and EXP table. You do not need to install .NET or keep library/model files beside the EXE.
+1. Run MapleTracker.exe. The Windows x64 release includes its runtime, OCR engine, recognition models, EXP table, and offline world catalog. You do not need to install .NET or keep library/model files beside the EXE.
 2. Run the game in windowed or borderless mode. Keep the text you want to capture visible.
 3. Click Setup, choose MapleStory, and Take snapshot. Tracker windows briefly disappear from the snapshot without closing Setup.
 4. Select each region and draw a box around its text: Chat messages, Loot notifications, Level number, and EXP number + percentage. Include every loot notification row you want to track. For EXP, include both the number and percentage, not just the yellow bar.
 5. For the recommended compact layout, collapse in-game chat to one white/gray bar and click Use white chat bar. Leave Chat history only off. Adjust the default box if your layout differs.
+   Map detection is automatic: keep the minimap title visible in the top left. If it cannot find your layout, select Map title and draw around both name lines; Auto detect map title restores automatic detection.
 6. Click Test recognition, review the text, then Save setup. Move tracker windows away from the selected game regions.
 7. Click Start capture and focus the game.
 
@@ -106,13 +109,21 @@ The Items tab reads item pickup notifications near the bottom-right of the game.
 ![Items tab showing pickup totals by item name and a timestamped loot feed](docs/screenshots/items.png)
 <!-- screenshots:end -->
 
-It tracks what was picked up, not everything currently in your inventory. It does not subtract items you use, sell, trade, or drop. The in-game notification can shorten a name with dots; MapleTracker cannot recover the hidden part. OCR spelling variants can split one item into multiple displayed types.
+It tracks what was picked up, not everything currently in your inventory. It does not subtract items you use, sell, trade, or drop.
+
+The bundled item catalog corrects sufficiently clear spelling errors before grouping totals. For example, Squishy Liquid ×19 and Squishy Liguid ×5 become Squishy Liquid ×24. A shortened name can be expanded when its prefix uniquely identifies an item. Colors, item categories and competing names are checked; uncertain names stay separate. Hover over a pickup to see its original OCR text. Quantities still come from the visible notification.
+
+After two strongly matched pickups on a confirmed map, that item becomes an additional spelling hint for the map. Hints are saved locally. New evidence can reconcile earlier uncertain totals from that same map; it does not reassign pickups from other maps. Ground drops from players or events may also contribute these hints, so they are not proof of a monster's drops.
 
 Two readable frames must agree on a quantity before counting it. Fade tracking reduces repeated counts from lingering notifications, but very brief, obscured, or badly read notifications can still be missed or counted incorrectly.
+
+The default loot box includes the higher rows of the notification stack, where party EXP messages can push older pickups. At the 1920×1080 game layout, a dedicated visual reader matches the meso label and checks each digit even on bright scenery. Other layouts use regular OCR. If you drew your own loot box, include the full notification stack in Setup.
 
 ## EXP, meso, and time to level
 
 Statistics is a separate movable window with independent Start, Stop, and Reset controls.
+
+Its title shows the recognized map name. Matching uses the canonical map catalog and waits for two agreeing observations. Hover over the title for its street and catalog monster names. Minimap size changes do not require selecting its entire body. If the title is hidden or unreadable, map-specific hints are disabled until it is recognized again. Changing maps preserves the cumulative session average; use Reset when you want to measure a new map separately.
 
 <!-- screenshots:start -->
 ![Statistics window showing level progress, time to next level, EXP and meso rates, session totals, and independent transparency](docs/screenshots/statistics.png)
@@ -137,7 +148,7 @@ All active time since Reset contributes, rather than only the last five minutes.
 
 Low uses one contrast view per chat row/part. Balanced uses two. High uses four and compares candidates. When a channel badge is detected, the sender and body are separate parts. More attempts cost more CPU time; High can help difficult text but cannot guarantee correct names, tags, prices, or quantities.
 
-All presets share one OCR model and process image buffers sequentially. Test recognition shows actual processing milliseconds, pass count, and current app memory on your PC. Recognition details in Statistics show live measurements. These are measurements, not fixed RAM requirements or accuracy promises.
+The regular presets share one OCR model and process image buffers sequentially. Preview builds can also include the optional trained Maple chat readers. Test recognition in Setup shows actual processing milliseconds, pass count, and current app memory on your PC. These are measurements, not fixed RAM requirements or accuracy promises.
 
 Omit channel / ear badges excludes detected megaphone channel rectangles before reading their sender and body. This is mainly useful for expanded history capture. White-bar capture starts with the contrast view used for the original compact game bar.
 
@@ -149,7 +160,8 @@ Chat history only is an optional alternative for a separate received-message reg
 - Typing hides incoming messages: this is a limitation of the shared white bar. Finish typing or pause capture until you finish.
 - Missing or garbled text: take a fresh Setup snapshot, tighten the boxes, and test recognition. Try Balanced or High on the same snapshot to compare. Include all loot rows and the full EXP number plus percentage.
 - Crowded maps or chat spam: fast messages can disappear before a capture, and busy backgrounds can interfere with OCR. Quieter farming maps usually give more reliable results.
-- Stale EXP: check the confirmation age and Recognition details. A displayed value may be old; redraw the level and EXP boxes if necessary.
+- Stale EXP: check the confirmation age and Test recognition in Setup. A displayed value may be old; redraw the level and EXP boxes if necessary.
+- Map not detected: keep the minimap title visible in the top left, or draw a manual Map title box in Setup. Match both the street and map name when possible.
 - No item alert: check the buying/selling direction, your custom tags, item aliases, popup switch, and Alert history. Repeated matches may be in the 60-second cooldown.
 - Repeated or incorrect items/meso: check the notification region and compare totals with gameplay. OCR-derived totals are estimates, not an inventory or accounting record.
 
@@ -161,8 +173,18 @@ Preferences, watchlists, runtime cache, recognition diagnostics, and session jou
 
     %LOCALAPPDATA%\MapleTracker
 
+If you used an OCR preview build, 1.1 continues to use your existing settings in `%LOCALAPPDATA%\MapleTracker-OCR-preview`.
+
 Nothing is uploaded by MapleTracker. Moving the EXE does not move or reset these saved preferences. Visible chat/item history and statistics start fresh each launch; the automatic session journals remain on disk.
 
 To import an older portable release's preferences, place the new EXE in the old release folder for its first launch. If no new-format settings exist yet, it imports data\settings.json from beside the EXE. Legacy data is left intact.
 
 The executable is unsigned. Supported target: Windows 10/11 x64 with permission to write local application data and temporary extraction files. Source/build instructions are in DEVELOPMENT.md; third-party licenses are available through Help > Third-party notices.
+
+## World catalog credits
+
+Map and item names, categories, and map monster placements are adapted from [OSMS Data Explorer (@ohmi)](https://osmsdataexplorer.com/) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The bundled snapshot contains 336 maps, 117 monsters and 2,259 items, updated October 29, 2026. It is reduced from their public v1 API; images, full stats and other fields are omitted. Game content belongs to Nexon; this project is unofficial.
+
+MapleTracker matches recognized loot names against the item catalog and uses locally observed pickups as hints for each map. The bundled third-party notices and data/LICENSE-OSMS.txt contain the attribution.
+
+Each launch checks the OSMS API metadata in the background and downloads any changed item, map, or monster lists. MapleTracker checks their hashes before saving the complete name catalog as `world-catalog.json` in your app data folder. Updates apply in the current session. If the check fails or you're offline, MapleTracker uses its last valid local catalog or the bundled copy. [OSMS API documentation](https://osmsdataexplorer.com/data/api/v1/README.md)

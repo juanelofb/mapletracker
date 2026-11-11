@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>MapleTracker</Product>
     <Description>Local chat, trade alerts, loot and EXP tracking for MapleStory.</Description>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -15,10 +15,19 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(MapleChatModelPath)' == ''">
+    <MapleChatModelPath>$(MSBuildThisFileDirectory)..\..\data\tessdata\maple_chat_int.traineddata</MapleChatModelPath>
+    <MapleChatFallbackModelPath Condition="'$(MapleChatFallbackModelPath)' == ''">$(MSBuildThisFileDirectory)..\..\data\tessdata-fallback\maple_chat_int.traineddata</MapleChatFallbackModelPath>
+    <MapleChatModelLicensePath Condition="'$(MapleChatModelLicensePath)' == ''">$(MSBuildThisFileDirectory)..\..\data\tessdata\LICENSE-maple-chat.txt</MapleChatModelLicensePath>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\MapleTracker.Core\MapleTracker.Core.csproj" />
     <PackageReference Include="Tesseract" Version="5.2.0" GeneratePathProperty="true" />
     <EmbeddedResource Include="..\..\data\exp-table.json" LogicalName="MapleTracker.Assets.exp-table.json" />
+    <EmbeddedResource Include="..\..\data\world-catalog.json" LogicalName="MapleTracker.Assets.world-catalog.json" />
+    <EmbeddedResource Include="..\..\data\meso-glyphs.json" LogicalName="MapleTracker.Assets.meso-glyphs.json" />
+    <EmbeddedResource Include="..\..\data\LICENSE-OSMS.txt" LogicalName="MapleTracker.Assets.OSMS-LICENSE.txt" />
     <EmbeddedResource Include="..\..\data\tessdata\eng.traineddata" LogicalName="MapleTracker.Assets.eng.traineddata" />
     <EmbeddedResource Include="..\..\data\tessdata\LICENSE" LogicalName="MapleTracker.Assets.OCR-LICENSE.txt" />
     <EmbeddedResource Include="..\..\README.md" LogicalName="MapleTracker.Assets.README.md" />
@@ -26,6 +35,19 @@
     <EmbeddedResource Include="$(PkgTesseract)\x64\*.dll" LogicalName="MapleTracker.Assets.native.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\data\native\x64\*.dll" LogicalName="MapleTracker.Assets.native.%(Filename)%(Extension)" />
   </ItemGroup>
+  <ItemGroup Condition="'$(MapleChatModelPath)' != ''">
+    <EmbeddedResource Include="$(MapleChatModelPath)" LogicalName="MapleTracker.Assets.maple_chat_int.traineddata" />
+    <EmbeddedResource Include="$(MapleChatModelLicensePath)" LogicalName="MapleTracker.Assets.Experimental-OCR-LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MapleChatFallbackModelPath)' != ''">
+    <EmbeddedResource Include="$(MapleChatFallbackModelPath)" LogicalName="MapleTracker.Assets.maple_chat_fallback.traineddata" />
+  </ItemGroup>
+  <Target Name="ValidateExperimentalFallbackModel" BeforeTargets="PrepareForBuild" Condition="'$(MapleChatFallbackModelPath)' != ''">
+    <Error Condition="!Exists('$(MapleChatFallbackModelPath)') Or '$(MapleChatModelPath)' == ''" Text="Experimental fallback builds require both font models." />
+  </Target>
+  <Target Name="ValidateExperimentalChatModel" BeforeTargets="PrepareForBuild" Condition="'$(MapleChatModelPath)' != ''">
+    <Error Condition="!Exists('$(MapleChatModelPath)') Or !Exists('$(MapleChatModelLicensePath)')" Text="Experimental chat builds require the model and its original license." />
+  </Target>
   <Target Name="RemoveLooseOcrLibraries" BeforeTargets="GetCopyToOutputDirectoryItems;ComputeFilesToPublish">
     <ItemGroup><None Remove="$(PkgTesseract)\x86\*.dll;$(PkgTesseract)\x64\*.dll" /></ItemGroup>
   </Target>

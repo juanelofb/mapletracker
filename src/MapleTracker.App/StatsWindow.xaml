@@ -4,6 +4,7 @@
     <local:OverlayTitleBar DockPanel.Dock="Top"/>
     <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Hairline}" BorderThickness="0,1,0,0" Padding="22,0,22,18"><local:TransparencyControl x:Name="Transparency"/></Border>
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="22,8,22,20">
+      <TextBlock x:Name="MapTitle" Text="Waiting for map" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,0,0,10"/>
       <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Button x:Name="StatsStartButton" Content="Start" Style="{StaticResource PrimaryButton}" Click="StartClick" ToolTip="Resume statistics from your current EXP."/>
         <Button x:Name="StatsStopButton" Grid.Column="1" Content="Stop" Click="StopClick" ToolTip="Freeze statistics while chat and alerts keep running."/>
@@ -36,7 +37,6 @@
       </Grid>
       <TextBlock x:Name="TotalsText" Foreground="#D6E0F2" FontSize="12" LineHeight="20"/>
       <TextBlock x:Name="ActiveText" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,4,0,8"/>
-      <Expander Header="Recognition details" Foreground="{StaticResource Muted}" Margin="0,10,0,0"><TextBox x:Name="Diagnostics" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="180" VerticalScrollBarVisibility="Auto" FontSize="11" Margin="0,8,0,0"/></Expander>
     </StackPanel></ScrollViewer>
   </DockPanel>
 </Window>

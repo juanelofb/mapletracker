@@ -10,5 +10,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MapleTracker.Core\MapleTracker.Core.csproj" />
     <Content Include="..\..\data\exp-table.json" Link="exp-table.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\data\world-catalog.json" Link="world-catalog.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

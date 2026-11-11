@@ -166,7 +166,7 @@
     <DataTemplate x:Key="MessageRow">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="66"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
         <TextBlock Text="{Binding Time, StringFormat={}{0:HH:mm:ss}}" Foreground="#7F93B0" FontSize="11" Margin="0,3,8,0"/>
-        <TextBlock Grid.Column="1" Text="{Binding Text}" LineHeight="21"/>
+        <TextBlock Grid.Column="1" Text="{Binding Text}" ToolTip="{Binding RawText}" LineHeight="21"/>
       </Grid>
     </DataTemplate>
   </Application.Resources>

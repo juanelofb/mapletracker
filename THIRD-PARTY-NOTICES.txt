@@ -1,4 +1,12 @@
-MapleTracker 1.0 - third-party notices
+MapleTracker - third-party notices
+
+World catalog: adapted from OSMS Data Explorer (@ohmi)
+https://osmsdataexplorer.com/ - CC BY 4.0
+https://creativecommons.org/licenses/by/4.0/
+Snapshot updated 2026-10-29; reduced to names, item categories and unique map
+monster IDs. No drop tables are included. Game content copyright Nexon.
+The original dataset notice is included as data/LICENSE-OSMS.txt and embedded
+in the application's third-party notices.
 
 MapleTracker bundles the .NET Windows runtime (MIT and bundled third-party notices),
 Tesseract .NET wrapper 5.2.0 by Charles Weld (Apache 2.0), Tesseract OCR (Apache 2.0),

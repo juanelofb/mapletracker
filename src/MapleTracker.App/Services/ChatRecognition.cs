@@ -10,7 +10,11 @@ public sealed partial class OcrReader
     internal string[] ReadChat(Bitmap frame, TrackerSettings settings, string? diagnostics)
     {
         using var crop = WindowCapture.Crop(frame, settings.Chat);
-        if (!settings.ChatHistoryOnly) return RecognizeChatPart(crop, settings, diagnostics, "chat-white-bar", compact: true);
+        if (!settings.ChatHistoryOnly)
+        {
+            var current = RecognizeChatPart(crop, settings, diagnostics, "chat-white-bar", compact: true);
+            return ReadExperimentalChat(crop, current, settings, diagnostics);
+        }
         var badges = settings.IgnoreChannelBadges ? ChannelBadges.Find(crop) : [];
         if (badges.Length < 2)
             return ReadChatRow(crop, badges.FirstOrDefault(), badges.Length > 0, settings, diagnostics, "chat");

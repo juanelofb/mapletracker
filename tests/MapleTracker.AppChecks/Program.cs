@@ -41,6 +41,10 @@ internal static class Program
             CheckBadgeScreenshot();
             CheckRepeatFixtures();
             CheckBundledAssets();
+            CheckPreviewProfile();
+            CheckWorldCatalogIntegration();
+            CatalogRefreshChecks.Run(Check);
+            CheckMesoGlyphReplay();
             Console.WriteLine($"\n{passed} WPF regression checks passed.");
             return 0;
         }
@@ -86,7 +90,11 @@ internal static class Program
         ((TextBox)dialog.FindName("BuyingTerms")).Text = "WTB, purchase";
         ((CheckBox)dialog.FindName("HistoryOnly")).IsChecked = true;
         ((CheckBox)dialog.FindName("OmitBadges")).IsChecked = false;
+        ((CheckBox)dialog.FindName("ExperimentalFont")).IsChecked = true;
         ((ComboBox)dialog.FindName("QualityPicker")).SelectedItem = RecognitionQuality.High;
+        ((RadioButton)dialog.FindName("MapRadio")).IsChecked = true;
+        var manualMap = new CaptureRegion(.04, .04, .16, .05);
+        dialog.SetCurrent(manualMap);
         dialog.Loaded += async (_, _) =>
         {
             try
@@ -124,6 +132,8 @@ internal static class Program
             Check(controller.Target == (save ? target : null), "target applied only on Save");
             Check(settings.BuyingTerms[0] == (save ? "WTB" : "Buying"), "edited settings applied only on Save");
             Check(settings.ChatHistoryOnly == save, "history-only capture preference applied only on Save");
+            Check(settings.AutoMapRegion != save && settings.Map == (save ? manualMap : new TrackerSettings().Map), "manual map calibration applies only on Save");
+            Check(settings.UseExperimentalChatFont == (save && RuntimeAssets.HasExperimentalChatModel), "experimental reader applies only on Save when its model is bundled");
             Check(settings.IgnoreChannelBadges != save && settings.RecognitionQuality == (save ? RecognitionQuality.High : RecognitionQuality.Balanced), "badge and quality preferences apply only on Save");
             if (save)
             {
@@ -131,6 +141,7 @@ internal static class Program
                 var loaded = store.Load();
                 Check(loaded.WindowTitle == target.Title && loaded.BuyingTerms[1] == "purchase", "saved setup survives a settings round trip");
                 Check(loaded.ChatHistoryOnly, "history-only capture preference survives restart");
+                Check(!loaded.AutoMapRegion && loaded.Map == manualMap, "manual map calibration survives restart");
                 Check(!loaded.IgnoreChannelBadges && loaded.RecognitionQuality == RecognitionQuality.High, "quality and badge preferences survive restart");
             }
         }
@@ -334,6 +345,56 @@ internal static class Program
         Check(guide.Contains("Buying terms") && guide.Contains("I WANT TO BUY") && guide.Contains("Items") && guide.Contains("cumulative session"), "bundled guide covers custom tags, trade watchlists, pickups and cumulative statistics");
         var help = new HelpWindow(new TrackerSettings()); help.Show(); help.Close();
         Check(RuntimeAssets.ReadNotices().Contains("Apache License"), "third-party notices are available from embedded assets");
+        if (RuntimeAssets.HasExperimentalChatModel)
+        {
+            RuntimeAssets.PrepareNativeOcr();
+            var modelDirectory=RuntimeAssets.ExperimentalChatDataDirectory;
+            Check(System.IO.File.Exists(System.IO.Path.Combine(modelDirectory,"maple_chat_int.traineddata")), "preview model extracts from embedded assets");
+            using var engine=new Tesseract.TesseractEngine(modelDirectory,"maple_chat_int",Tesseract.EngineMode.LstmOnly);
+            if (RuntimeAssets.HasExperimentalFallbackModel)
+            {
+                var fallbackDirectory=RuntimeAssets.ExperimentalFallbackDataDirectory;
+                Check(System.IO.File.Exists(System.IO.Path.Combine(fallbackDirectory,"maple_chat_int.traineddata")), "companion font extracts to a separate fallback cache");
+                using var fallback=new Tesseract.TesseractEngine(fallbackDirectory,"maple_chat_int",Tesseract.EngineMode.LstmOnly);
+            }
+            Check(RuntimeAssets.ReadNotices().Contains("tessdata_best"), "preview includes its source-model license attribution");
+            var fixture=Environment.GetEnvironmentVariable("MAPLETRACKER_PREVIEW_SMOKE_SCREENSHOT");
+            if(!string.IsNullOrEmpty(fixture) && System.IO.File.Exists(fixture))
+            {
+                using var image=new Bitmap(fixture);
+                var table=ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
+                using var regular=new OcrReader(table);
+                using var preview=new OcrReader(table);
+                var baseline=regular.Read(image,new TrackerSettings());
+                var candidate=preview.Read(image,new TrackerSettings { UseExperimentalChatFont=true });
+                Check(baseline.Hud!=null && baseline.Hud==candidate.Hud && baseline.Loot.SequenceEqual(candidate.Loot), "experimental chat leaves validated full-frame HUD and loot recognition unchanged");
+                Check(candidate.ChatPasses>baseline.ChatPasses, "embedded preview model runs the extra guarded chat pass");
+            }
+        }
+    }
+
+    private static void CheckPreviewProfile()
+    {
+        var root=System.IO.Path.Combine(SettingsStore.DataDirectory,"profile-check-"+Guid.NewGuid().ToString("N"));
+        var source=System.IO.Path.Combine(root,"stable");
+        var destination=System.IO.Path.Combine(root,"preview");
+        System.IO.Directory.CreateDirectory(source);
+        var original=new TrackerSettings { ChatWidth=913, BuyingItems=["Steel Ore"], UseExperimentalChatFont=true };
+        var originalJson=System.Text.Json.JsonSerializer.Serialize(original);
+        System.IO.File.WriteAllText(System.IO.Path.Combine(source,"settings.json"),originalJson);
+        PreviewProfile.Prepare(source,destination);
+        var path=System.IO.Path.Combine(destination,"settings.json");
+        var copied=System.Text.Json.JsonSerializer.Deserialize<TrackerSettings>(System.IO.File.ReadAllText(path))!;
+        Check(copied.ChatWidth==913 && copied.BuyingItems.SequenceEqual(original.BuyingItems), "preview imports calibration and watchlist preferences");
+        Check(!copied.UseExperimentalChatFont, "new preview profile starts with the experimental reader off");
+        Check(System.IO.File.ReadAllText(System.IO.Path.Combine(source,"settings.json"))==originalJson, "preview profile import preserves stable settings byte for byte");
+        copied.UseExperimentalChatFont=true;
+        System.IO.File.WriteAllText(path,System.Text.Json.JsonSerializer.Serialize(copied));
+        PreviewProfile.Prepare(source,destination);
+        Check(System.Text.Json.JsonSerializer.Deserialize<TrackerSettings>(System.IO.File.ReadAllText(path))!.UseExperimentalChatFont, "existing preview settings survive subsequent launches");
+        var rejected=false;
+        try { PreviewProfile.Prepare(source,source); } catch(ArgumentException) { rejected=true; }
+        Check(rejected, "preview profile refuses the stable directory as its destination");
     }
 
     private static void CheckMainWindowClosing()
@@ -451,5 +512,93 @@ internal static class Program
             window.Close();
             System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
+    }
+
+    private static void CheckWorldCatalogIntegration()
+    {
+        Check(RuntimeAssets.WorldCatalog.Items.Count == 2259 && RuntimeAssets.WorldCatalog.Maps.Count == 336, "offline catalog is embedded in the app");
+        Check(RuntimeAssets.ReadNotices().Contains("OSMS Data Explorer") && RuntimeAssets.ReadNotices().Contains("creativecommons.org/licenses/by/4.0"), "OSMS attribution and license travel with the EXE");
+        var store = new SettingsStore();
+        store.Save(new TrackerSettings { Map = null!, AutoMapRegion = false, BuyingItems = ["Steel Ore"], MapItemHints = new() { [10003010] = [4000006] } });
+        var migrated = store.Load();
+        Check(migrated.AutoMapRegion && migrated.Map.IsValid && migrated.BuyingItems.SequenceEqual(new[] { "Steel Ore" }), "invalid map calibration recovers without discarding existing watchlists");
+        Check(migrated.MapItemHints[10003010].SequenceEqual(new[] { 4000006 }), "observed map hints survive a settings round trip");
+        var controller = new TrackerController(new TrackerSettings());
+        var stats = new StatsWindow(controller);
+        try
+        {
+            var map = RuntimeAssets.WorldCatalog.MatchMap(["Victoria Road", "Kerning City Construction Site"])!;
+            controller.AcceptMap(map); controller.AcceptMap(map);
+            controller.AddLoot("Squishy Liquid x19 earned. (Etc)");
+            controller.AddLoot("Squishy Liguid x5 earned. (Etc)");
+            Check(controller.Items.Count == 1 && controller.Items["Squishy Liquid"] == 24, "controller merges misspelled loot totals without changing quantity");
+            Check(controller.Entries.Last() is { Text: "Squishy Liquid x5 earned. (Etc)", RawText: "Squishy Liguid x5 earned. (Etc)", ItemId: 4000006, MapId: 10003010 }, "corrected feed preserves original OCR and pickup map");
+            stats.Show(); stats.Refresh();
+            Check(((TextBlock)stats.FindName("MapTitle")).Text == map.Name, "statistics displays the confirmed canonical map title");
+            Check(controller.MapInfo.Contains("Monsters:") && controller.MapInfo.Contains("Session rates continue"), "map tooltip describes local monsters and cumulative session rates");
+            Check(stats.FindName("Diagnostics") == null, "statistics no longer exposes Recognition details");
+            var preview = Environment.GetEnvironmentVariable("MAPLETRACKER_MAP_STATS_PREVIEW");
+            if (!string.IsNullOrEmpty(preview))
+            {
+                stats.UpdateLayout();
+                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)stats.ActualWidth, (int)stats.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                bitmap.Render(stats);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                using var output = System.IO.File.Create(preview); encoder.Save(output);
+            }
+        }
+        finally { stats.Close(); controller.Shutdown().GetAwaiter().GetResult(); }
+        using var reader = new OcrReader(ExperienceTable.Load(RuntimeAssets.ExperienceTablePath));
+        foreach (var (variable, expected) in new[] {
+            ("MAPLETRACKER_CONSTRUCTION_MAP", "Kerning City Construction Site"),
+            ("MAPLETRACKER_ORIGINAL_SCREENSHOT", "Ant Tunnel Park"),
+            ("MAPLETRACKER_ANT_MAP", "Ant Tunnel III") })
+        {
+            var path = Environment.GetEnvironmentVariable(variable);
+            if (string.IsNullOrEmpty(path)) continue;
+            using var image = new Bitmap(path);
+            var frame = reader.Read(image, new TrackerSettings());
+            Check(frame.Map?.Name == expected, "real minimap title resolves: " + expected + " (" + string.Join(" / ", frame.MapText) + ")");
+            var manual = new TrackerSettings { AutoMapRegion = false };
+            var region = OcrReader.FindMapTitle(image, manual.Map)!.Value;
+            manual.Map = new(region.X / (double)image.Width, region.Y / (double)image.Height, region.Width / (double)image.Width, region.Height / (double)image.Height);
+            Check(reader.Read(image, manual).Map?.Name == expected, "manual map calibration reads the same title: " + expected);
+        }
+        using var blank = new Bitmap(1920, 1080);
+        Check(reader.Read(blank, new TrackerSettings()).Map == null, "unreadable minimap does not reuse a cached map");
+    }
+
+    private static void CheckMesoGlyphReplay()
+    {
+        var store = new SettingsStore();
+        store.Save(new TrackerSettings { Loot = new(.85, .75, .15, .06) });
+        Check(store.Load().Loot == new TrackerSettings().Loot, "legacy default loot box expands to include the party notification stack");
+        var custom = new CaptureRegion(.82, .70, .17, .12);
+        store.Save(new TrackerSettings { Loot = custom });
+        Check(store.Load().Loot == custom, "custom loot calibration survives the default-region upgrade");
+        var folder = Environment.GetEnvironmentVariable("MAPLETRACKER_MESO_FIXTURES");
+        if (string.IsNullOrEmpty(folder)) return;
+        var controller = new TrackerController(new TrackerSettings());
+        using var reader = new OcrReader(controller.Table);
+        try
+        {
+            RecognitionFrame Read(int index)
+            {
+                using var image = new Bitmap(System.IO.Path.Combine(folder, $"game-{index:D4}.png"));
+                return reader.Read(image, controller.Settings);
+            }
+            long[] Mesos(RecognitionFrame frame) => frame.Loot.Select(TextParsing.Mesos).OfType<long>().ToArray();
+            Check(Mesos(Read(0)).SequenceEqual(new long[] { 7, 15, 7 }), "bright-map screenshot reads all three meso rows, including those above the old crop");
+            Check(Mesos(Read(18)).SequenceEqual(new long[] { 4, 7, 5 }), "meso glyph reader separates amounts in a different notification stack");
+            Check(Mesos(Read(3)).Length == 0 && Mesos(Read(20)).Length == 0, "party EXP and empty scenery do not become meso pickups");
+            var feed = new LootFeedTracker();
+            var first = Read(16); var next = Read(17);
+            Check(feed.Update(first.LootLines, TimeSpan.Zero).Count == 0, "one frame does not confirm a visual meso reading");
+            var added = feed.Update(next.LootLines, TimeSpan.FromSeconds(.65));
+            foreach (var line in added) controller.AddLoot(line);
+            Check(controller.Snapshot.Mesos == 12, "same visual pickup on two frames reaches Statistics exactly once");
+            Check(feed.Update(next.LootLines.Where(l => TextParsing.Mesos(l.Text) == 12), TimeSpan.FromSeconds(1.3)).Count == 0, "the same visible meso notification is not counted again");
+        }
+        finally { controller.Shutdown().GetAwaiter().GetResult(); }
     }
 }

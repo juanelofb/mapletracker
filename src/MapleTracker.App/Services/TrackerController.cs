@@ -9,10 +9,18 @@ public sealed class TrackerController
 {
     public TrackerSettings Settings { get; }
     public ExperienceTable Table { get; }
+    public GameCatalog Catalog { get; private set; }
     public ObservableCollection<FeedEntry> Entries { get; } = [];
     public ObservableCollection<TradeAlert> Alerts { get; } = [];
     public event Action<TradeAlert>? AlertRaised;
-    public Dictionary<string, long> Items { get; } = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LootCounter lootCounter;
+    private readonly MapContextTracker mapContext = new();
+    public Dictionary<string, long> Items => lootCounter.Totals;
+    public int ItemsRevision => lootCounter.Revision;
+    public string MapTitle => mapContext.Title;
+    public MapReading? CurrentMap => mapContext.Current;
+    public string MapInfo => CurrentMap == null ? "Keep the minimap title visible. Map title can be calibrated in Setup." :
+        $"{CurrentMap.StreetName}\nMonsters: {string.Join(", ", Catalog.MonsterNames(mapContext.LootMapId))}\nSession rates continue until Reset.\nData: OSMS Data Explorer";
     public GameWindow? Target { get; set; }
     public string Status { get; private set; } = "Choose your game window in Setup to begin.";
     public string DiagnosticsText { get; private set; } = "No frames read yet.";
@@ -44,15 +52,27 @@ public sealed class TrackerController
         $"EXP confirmed {Math.Max(0, (int)(DateTimeOffset.UtcNow - lastHudAt.Value).TotalSeconds)}s ago";
     public SessionSnapshot Snapshot => session.Snapshot(active.Elapsed);
 
-    public TrackerController(TrackerSettings settings)
+    public TrackerController(TrackerSettings settings, GameCatalog? catalog = null)
     {
         Settings = settings;
         Table = ExperienceTable.Load(RuntimeAssets.ExperienceTablePath);
+        Catalog = catalog ?? RuntimeAssets.WorldCatalog;
+        lootCounter = new(Catalog, settings.MapItemHints);
         session = new(Table);
         alertMatcher = new(settings);
         timer.Tick += async (_, _) => await Tick();
         timer.Start();
     }
+
+    internal void ApplyCatalog(GameCatalog catalog)
+    {
+        lootCounter.UpdateCatalog(catalog);
+        Catalog = catalog;
+        Settings.MapItemHints = lootCounter.LearnedItems;
+        mapContext.Reset();
+        Changed?.Invoke();
+    }
+
     public void Start()
     {
         if (Target == null) { Status = "Select a game window in Setup first."; Changed?.Invoke(); return; }
@@ -69,7 +89,7 @@ public sealed class TrackerController
     {
         generation++; statisticsGeneration++; Running = false; active.Reset(); session.Reset(); rebaseStatistics = false;
         chatLines.Reset(); lootLines.Reset(); pendingHud = null; hasHud = false;
-        Entries.Clear(); Items.Clear(); Alerts.Clear(); alertMatcher.Reset(); journal?.Dispose(); journal = null; journalWarning = null;
+        Entries.Clear(); lootCounter.Reset(); mapContext.Reset(); Alerts.Clear(); alertMatcher.Reset(); journal?.Dispose(); journal = null; journalWarning = null;
         lastHudAt = null;
         Status = "New session · ready"; DiagnosticsText = "No frames read yet."; Changed?.Invoke();
     }
@@ -123,16 +143,18 @@ public sealed class TrackerController
         busy = true;
         var version = generation;
         var statsVersion = statisticsGeneration;
+        var catalog = Catalog;
         try
         {
             var frame = await Task.Run(() =>
             {
                 using var bitmap = WindowCapture.Capture(target.Handle);
                 ocr ??= new(Table);
-                return ocr.Read(bitmap, Settings);
+                return ocr.Read(bitmap, Settings, catalog: catalog);
             });
             if (version != generation || !Running) return;
             if (WindowCapture.GetForegroundWindow() != target.Handle || WindowCapture.RegionsCovered(target.Handle, Settings)) { SuspendStatisticsClock(); return; }
+            if (ReferenceEquals(catalog, Catalog)) AcceptMap(frame.Map);
             foreach (var line in chatLines.Update(frame.Chat, Settings.ChatHistoryOnly)) AddChat(line);
             foreach (var line in lootLines.Update(frame.LootLines, notificationClock.Elapsed)) AddLoot(line, statsVersion == statisticsGeneration);
             if (statsVersion == statisticsGeneration) AcceptHud(frame.Hud);
@@ -166,6 +188,8 @@ public sealed class TrackerController
         if (session.Observe(reading, active.Elapsed)) { lastConfirmedAbsolute = absolute; hasHud = true; lastHudAt = DateTimeOffset.UtcNow; }
     }
 
+    internal void AcceptMap(MapReading? reading) => mapContext.Observe(reading, notificationClock.Elapsed);
+
     private DateTimeOffset nextDiagnosticsWrite;
     private void WriteRecognitionDiagnostics(RecognitionFrame frame)
     {
@@ -177,7 +201,7 @@ public sealed class TrackerController
             File.WriteAllText(Path.Combine(SettingsStore.DataDirectory, "recognition-last.json"), JsonSerializer.Serialize(new
             {
                 Time = DateTimeOffset.Now, Running, StatisticsRunning, Status, Settings.ChatHistoryOnly,
-                IgnoredChatLines = chatLines.IgnoredLines, LastConfirmedHud = lastHudAt, Frame = frame, Snapshot
+                IgnoredChatLines = chatLines.IgnoredLines, LastConfirmedHud = lastHudAt, CatalogUpdatedAt = Catalog.DataUpdatedAt, Frame = frame, Snapshot
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
@@ -198,8 +222,12 @@ public sealed class TrackerController
     {
         if (StatisticsRunning && countStatistics && TextParsing.Mesos(text) is long amount) session.AddMesos(amount);
         if (TextParsing.Loot(text) is not { } item) return;
-        Items[item.Name] = Items.GetValueOrDefault(item.Name) + item.Quantity;
-        AddEntry(new(DateTimeOffset.Now, text, MessageKind.Item, item.Name, item.Quantity));
+        var resolved = lootCounter.Add(item, text, mapContext.LootMapId);
+        Settings.MapItemHints = lootCounter.LearnedItems;
+        int start = text.IndexOf(item.Name, StringComparison.OrdinalIgnoreCase);
+        var display = start >= 0 ? text.Remove(start, item.Name.Length).Insert(start, resolved.Name) : text;
+        AddEntry(new(DateTimeOffset.Now, display, MessageKind.Item, resolved.Name, item.Quantity)
+        { RawText = text, MapId = mapContext.LootMapId, ItemId = resolved.Id });
     }
     private void AddEntry(FeedEntry entry)
     {
